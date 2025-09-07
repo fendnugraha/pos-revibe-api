@@ -45,4 +45,35 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::deleting(function ($user) {
+            if ($user->id === 1) {
+                throw new \Exception("Default admin user cannot be deleted.");
+            }
+        });
+    }
+
+    public function warehouse()
+    {
+        return $this->belongsTo(Warehouse::class);
+    }
+
+    public function role()
+    {
+        return $this->hasOne(UserRole::class, 'user_id');
+    }
+
+    public function transactions()
+    {
+        return $this->hasMany(Transaction::class);
+    }
+
+    public function journals()
+    {
+        return $this->hasMany(JournalEntry::class);
+    }
 }
