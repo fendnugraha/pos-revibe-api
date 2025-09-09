@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Http\Resources\DataResource;
 use App\Models\ChartOfAccount;
+use App\Models\ProductCategory;
 
 class ProductController extends Controller
 {
@@ -422,20 +423,44 @@ class ProductController extends Controller
     {
         $products = $request->input('data', []);
 
-        foreach ($products as $item) {
-            Product::updateOrCreate(
-                ['code' => $item['code']], // kunci unik
-                [
-                    'name' => $item['name'],
-                    'category_id' => $item['category_id'] ?? 1,
-                    'is_service' => $item['is_service'] ?? false,
-                    'price' => $item['price'],
-                    'init_cost' => $item['init_cost'] ?? 0,
-                    'current_cost' => $item['current_cost'] ?? 0,
-                ]
-            );
-        }
+        DB::beginTransaction();
+        try {
+            foreach ($products as $item) {
+                $category = ProductCategory::where('name', $item['category_name'])->first();
 
-        return response()->json(['success' => true, 'message' => 'Products imported successfully']);
+                if (!$category) {
+                    DB::rollBack();
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Category {$item['category_name']} not found"
+                    ], 404);
+                }
+
+                Product::updateOrCreate(
+                    ['name' => $item['name']], // key unik
+                    [
+                        'code'         => $item['code'],
+                        'category_id'  => $category->id,
+                        'is_service'   => (bool) ($item['is_service'] ?? false),
+                        'price'        => $item['price'],
+                        'init_cost'    => $item['init_cost'] ?? 0,
+                        'current_cost' => $item['current_cost'] ?? 0,
+                    ]
+                );
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Products imported successfully'
+            ], 200);
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => $th->getMessage()
+            ], 400);
+        }
     }
 }

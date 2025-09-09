@@ -33,6 +33,7 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
     Route::apiResource('products', ProductController::class);
     Route::apiResource('product-categories', ProductCategoryController::class);
     Route::get('get-all-products', [ProductController::class, 'getAllProducts']);
+    Route::post('/import-category', [ProductCategoryController::class, 'import']);
     Route::get('get-all-products-by-warehouse/{warehouse}/{endDate}', [ProductController::class, 'getAllProductsByWarehouse']);
     Route::post('stock-adjustment', [ProductController::class, 'stockAdjustment']);
     Route::post('stock-reversal', [ProductController::class, 'stockReversal']);

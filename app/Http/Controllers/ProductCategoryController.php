@@ -2,9 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Resources\DataResource;
-use App\Models\ProductCategory;
 use Illuminate\Http\Request;
+use App\Models\ProductCategory;
+use Illuminate\Support\Facades\DB;
+use App\Http\Resources\DataResource;
 
 class ProductCategoryController extends Controller
 {
@@ -76,5 +77,33 @@ class ProductCategoryController extends Controller
     public function destroy(ProductCategory $productCategory)
     {
         //
+    }
+
+    public function import(Request $request)
+    {
+        $products = $request->input('data', []);
+
+        DB::beginTransaction();
+        try {
+            foreach ($products as $item) {
+                ProductCategory::firstOrCreate([
+                    'prefix' => $item['prefix'],
+                    'name'   => $item['name'],
+                ]);
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Product categories imported successfully'
+            ], 200);
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => $th->getMessage()
+            ], 400);
+        }
     }
 }

@@ -105,13 +105,9 @@ class DatabaseSeeder extends Seeder
         //     ]
         // ]);
 
-        // ProductCategory::insert([
-        //     ['id' => 1, 'name' => 'General', 'prefix' => 'GNR'],
-        //     ['id' => 2, 'name' => 'Sparepart', 'prefix' => 'SPR'],
-        //     ['id' => 3, 'name' => 'Aksesoris',  'prefix' => 'ACC'],
-        //     ['id' => 4, 'name' => 'Service',    'prefix' => 'SRV'],
-        //     ['id' => 5, 'name' => 'HP Second',   'prefix' => 'HPS'],
-        // ]);
+        ProductCategory::insert([
+            ['id' => 1, 'name' => 'General', 'prefix' => 'GNR'],
+        ]);
 
         $this->call([
             AccountSeeder::class,
