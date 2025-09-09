@@ -153,20 +153,6 @@ class ProductController extends Controller
             ->orderBy('name')
             ->get();
 
-        // Ambil semua stok awal sekaligus
-        $warehouseStocks = WarehouseStock::where('warehouse_id', $warehouse)
-            ->pluck('init_stock', 'product_id'); // hasil: [product_id => init_stock]
-        // Tambahkan init_stock dan current_stock ke setiap product
-        $products->transform(function ($product) use ($warehouseStocks) {
-            $initStock = $warehouseStocks[$product->id] ?? 0;
-            $qty = $product->stock_movements_sum_quantity ?? 0;
-
-            $product->init_stock = $initStock;
-            $product->current_stock = $initStock + $qty;
-
-            return $product;
-        });
-
         return new DataResource($products, true, "Successfully fetched products");
     }
 
@@ -430,5 +416,26 @@ class ProductController extends Controller
                 'message' => $th->getMessage()
             ], 400);
         }
+    }
+
+    public function import(Request $request)
+    {
+        $products = $request->input('data', []);
+
+        foreach ($products as $item) {
+            Product::updateOrCreate(
+                ['code' => $item['code']], // kunci unik
+                [
+                    'name' => $item['name'],
+                    'category_id' => $item['category_id'] ?? 1,
+                    'is_service' => $item['is_service'] ?? false,
+                    'price' => $item['price'],
+                    'init_cost' => $item['init_cost'] ?? 0,
+                    'current_cost' => $item['current_cost'] ?? 0,
+                ]
+            );
+        }
+
+        return response()->json(['success' => true, 'message' => 'Products imported successfully']);
     }
 }

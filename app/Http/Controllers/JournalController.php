@@ -4,10 +4,7 @@ namespace App\Http\Controllers;
 
 use Carbon\Carbon;
 use App\Models\Journal;
-use App\Models\Product;
 use App\Models\Warehouse;
-use App\Models\LogActivity;
-use App\Models\Transaction;
 use App\Models\JournalEntry;
 use Illuminate\Http\Request;
 use App\Models\ChartOfAccount;
@@ -83,7 +80,7 @@ class JournalController extends Controller
         ]);
 
         $journal = Journal::findOrFail($id); // Better to fail gracefully
-        $log = new LogActivity();
+        // $log = new LogActivity();
         $isAmountChanged = $journal->amount != $request->amount;
         $isFeeAmountChanged = $journal->fee_amount != $request->fee_amount;
 
@@ -107,14 +104,14 @@ class JournalController extends Controller
             }
 
 
-            if ($isAmountChanged || $isFeeAmountChanged) {
-                $log->create([
-                    'user_id' => auth()->id,
-                    'warehouse_id' => $journal->warehouse_id,
-                    'activity' => 'Updated Journal',
-                    'description' => 'Updated Journal with ID: ' . $journal->id . '. ' . implode(' ', $descriptionParts),
-                ]);
-            }
+            // if ($isAmountChanged || $isFeeAmountChanged) {
+            //     $log->create([
+            //         'user_id' => auth()->id,
+            //         'warehouse_id' => $journal->warehouse_id,
+            //         'activity' => 'Updated Journal',
+            //         'description' => 'Updated Journal with ID: ' . $journal->id . '. ' . implode(' ', $descriptionParts),
+            //     ]);
+            // }
 
             DB::commit();
         } catch (\Exception $e) {
@@ -320,33 +317,31 @@ class JournalController extends Controller
 
     public function getWarehouseBalance($endDate)
     {
-        $journal = new Journal();
+        $entries = new JournalEntry();
         $endDate = $endDate ? Carbon::parse($endDate)->endOfDay() : Carbon::now()->endOfDay();
 
-        $transactions = $journal
-            ->with('warehouse', 'debt', 'cred')
-            ->selectRaw('debt_code, cred_code, SUM(amount) as total')
-            ->whereBetween('date_issued', [Carbon::create(0000, 1, 1, 0, 0, 0)->startOfDay(), $endDate])
-            ->groupBy('debt_code', 'cred_code')
-            ->get();
+        $chartOfAccounts = ChartOfAccount::with('account')->whereIn('account_id', [1, 2])->get();
 
-        $chartOfAccounts = ChartOfAccount::with(['account'])->get();
+        $journals = $entries->with('journal', 'chartOfAccount')
+            ->whereHas('journal', function ($query) use ($endDate) {
+                $query->where('date_issued', '<=', $endDate);
+            })->get();
 
-        foreach ($chartOfAccounts as $value) {
-            $debit = $transactions->where('debt_code', $value->id)->sum('total');
-            $credit = $transactions->where('cred_code', $value->id)->sum('total');
+        foreach ($chartOfAccounts as $acc) {
+            $debet = $journals->where('chart_of_account_id', $acc->id)->sum('debit');
+            $credit = $journals->where('chart_of_account_id', $acc->id)->sum('credit');
 
-            // @ts-ignore
-            $value->balance = ($value->account->status == "D") ? ($value->st_balance + $debit - $credit) : ($value->st_balance + $credit - $debit);
+            if ($acc->account->status === 'D') {
+                $acc->balance = $acc->st_balance + $debet - $credit;
+            } else {
+                $acc->balance = $acc->st_balance + $credit - $debet;
+            }
         }
 
-        $sumtotalCash = $chartOfAccounts->whereIn('account_id', ['1']);
-        $sumtotalBank = $chartOfAccounts->whereIn('account_id', ['2']);
-
-        $warehouse = Warehouse::where('status', 1)->orderBy('name', 'asc')->get();
+        $warehouse = Warehouse::where('is_active', true)->orderBy('name', 'asc')->get();
 
         $data = [
-            'warehouse' => $warehouse->map(function ($warehouse) use ($chartOfAccounts) {
+            'warehouses' => $warehouse->map(function ($warehouse) use ($chartOfAccounts) {
                 return [
                     'id' => $warehouse->id,
                     'name' => $warehouse->name,
@@ -354,8 +349,8 @@ class JournalController extends Controller
                     'bank' => $chartOfAccounts->whereIn('account_id', ['2'])->where('warehouse_id', $warehouse->id)->sum('balance')
                 ];
             }),
-            'totalCash' => $sumtotalCash->sum('balance'),
-            'totalBank' => $sumtotalBank->sum('balance')
+            'totalCash' => $chartOfAccounts->whereIn('account_id', ['1'])->sum('balance'),
+            'totalBank' => $chartOfAccounts->whereIn('account_id', ['2'])->sum('balance')
         ];
 
         return response()->json([
@@ -468,7 +463,7 @@ class JournalController extends Controller
             ->groupBy('warehouses.id', 'warehouses.name', 'warehouses.code')
             ->get()
             ->map(function ($row) use ($startDate, $endDate) {
-                $total_order = ServiceOrder::where('warehouse_id', $row->warehouse_id)->whereBetween('date_issued', [$startDate, $endDate])->count();
+                $total_order = ServiceOrder::where('warehouse_id', $row->warehouse_id)->whereBetween('updated_at', [$startDate, $endDate])->count();
                 return [
                     'warehouse_id'   => $row->warehouse_id,
                     'warehouse_name' => $row->warehouse_name,
@@ -497,12 +492,15 @@ class JournalController extends Controller
 
         $chartOfAccounts = ChartOfAccount::with('account')->get();
 
-        $journals = $entries->with('journal', 'chartOfAccount')
-            ->whereHas('journal', function ($query) use ($startDate, $endDate, $warehouse) {
-                $query->whereBetween('date_issued', [$startDate, $endDate])
-                    ->where('warehouse_id', $warehouse);
-            })->get();
-
+        $journals = $entries->with(['journal', 'chartOfAccount'])
+            ->where(function ($q) use ($startDate, $endDate, $warehouse, $chartOfAccounts) {
+                $q->whereHas('journal', function ($query) use ($startDate, $endDate, $warehouse) {
+                    $query->whereBetween('date_issued', [$startDate, $endDate])
+                        ->where('warehouse_id', $warehouse);
+                })
+                    ->orWhereIn('chart_of_account_id', $chartOfAccounts->where('warehouse_id', $warehouse)->pluck('id')->toArray());
+            })
+            ->get();
 
 
         foreach ($chartOfAccounts as $acc) {
@@ -510,9 +508,9 @@ class JournalController extends Controller
             $credit = $journals->where('chart_of_account_id', $acc->id)->sum('credit');
 
             if ($acc->account->status === 'D') {
-                $acc->balance = $debet - $credit;
+                $acc->balance = $acc->st_balance + $debet - $credit;
             } else {
-                $acc->balance = $credit - $debet;
+                $acc->balance = $acc->st_balance + $credit - $debet;
             }
         }
 
@@ -526,8 +524,13 @@ class JournalController extends Controller
         $expense = $chartOfAccounts
             ->whereIn('account_id', range(33, 45))
             ->sum('balance');
+        $cash = $chartOfAccounts
+            ->where('warehouse_id', $warehouse)
+            ->where('is_primary_cash', true)
+            ->sum('balance');
 
         $data = [
+            'cash' => $cash,
             'revenue' => $revenue,
             'cost' => $cost,
             'expense' => $expense,

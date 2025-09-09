@@ -119,7 +119,7 @@ class DatabaseSeeder extends Seeder
             ProductSeeder::class
         ]);
 
-        Contact::factory(10)->create();
-        ServiceOrder::factory(10)->create();
+        Contact::factory(20)->create();
+        ServiceOrder::factory(25)->create();
     }
 }

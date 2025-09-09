@@ -170,7 +170,7 @@ class FinanceController extends Controller
             ]);
         }
 
-        $log = new LogActivity();
+        // $log = new LogActivity();
 
         DB::beginTransaction();
         try {
@@ -179,12 +179,12 @@ class FinanceController extends Controller
 
             $financeAmount = $finance->bill_amount > 0 ? $finance->bill_amount : $finance->payment_amount;
             $billOrPayment = $finance->bill_amount > 0 ? 'bill' : 'payment';
-            $log->create([
-                'user_id' => auth()->id,
-                'warehouse_id' => 1,
-                'activity' => $finance->finance_type . ' deleted',
-                'description' => $finance->finance_type . ' with invoice: ' . $finance->invoice . ' ' . $billOrPayment . ' amount: ' . $financeAmount . ' deleted by ' . auth()->user()->name,
-            ]);
+            // $log->create([
+            //     'user_id' => auth()->id,
+            //     'warehouse_id' => 1,
+            //     'activity' => $finance->finance_type . ' deleted',
+            //     'description' => $finance->finance_type . ' with invoice: ' . $finance->invoice . ' ' . $billOrPayment . ' amount: ' . $financeAmount . ' deleted by ' . auth()->user()->name,
+            // ]);
 
             DB::commit();
             return response()->json([
@@ -212,13 +212,19 @@ class FinanceController extends Controller
         return new DataResource($finance, true, "Successfully fetched finances");
     }
 
-    public function getFinanceByType($contact, $financeType)
+    public function getFinanceByType($contact, $financeType, $startDate, $endDate)
     {
+        $startDate = $startDate ? Carbon::parse($startDate)->startOfDay() : Carbon::now()->startOfDay();
+        $endDate = $endDate ? Carbon::parse($endDate)->endOfDay() : Carbon::now()->endOfDay();
+
         $finance = Finance::with(['contact', 'journal.entries.chartOfAccount'])
+            ->when($startDate && $endDate, function ($query) use ($startDate, $endDate) {
+                $query->whereBetween('date_issued', [$startDate, $endDate]);
+            })
             ->where(fn($query) => $contact == "All" ?
                 $query : $query->where('contact_id', $contact))
             ->where('finance_type', $financeType)
-            ->latest('created_at')
+            ->latest('date_issued')
             ->paginate(5)
             ->onEachSide(0);
 

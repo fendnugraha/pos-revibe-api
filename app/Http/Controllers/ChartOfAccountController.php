@@ -641,13 +641,16 @@ class ChartOfAccountController extends Controller
 
         $entries = new JournalEntry();
         $endDate = $endDate ? Carbon::parse($endDate)->endOfDay() : Carbon::now()->endOfDay();
-        $chartOfAccounts = ChartOfAccount::with(['account'])->where('warehouse_id', $warehouse)->get();
+        $chartOfAccounts = ChartOfAccount::with(['account'])->whereIn('account_id', [1, 2])->get();
 
-        $journals = $entries->with('journal', 'chartOfAccount')
-            ->whereHas('journal', function ($query) use ($endDate, $warehouse) {
-                $query->where('date_issued', '<=', [$endDate])
-                    ->where('warehouse_id', $warehouse);
-            })->get();
+        $journals = $entries->with(['journal', 'chartOfAccount'])
+            ->where(function ($q) use ($endDate, $warehouse, $chartOfAccounts) {
+                $q->whereHas('journal', function ($query) use ($endDate, $warehouse) {
+                    $query->where('date_issued', '<=', $endDate);
+                })
+                    ->orWhereIn('chart_of_account_id', $chartOfAccounts->where('warehouse_id', $warehouse)->pluck('id')->toArray());
+            })
+            ->get();
 
         foreach ($chartOfAccounts as $acc) {
             $debet = $journals->where('chart_of_account_id', $acc->id)->sum('debit');

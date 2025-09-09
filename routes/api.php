@@ -15,8 +15,10 @@ use App\Http\Controllers\ChartOfAccountController;
 use App\Http\Controllers\ProductCategoryController;
 
 Route::middleware(['auth:sanctum'])->get('/user', function (Request $request) {
-    return $request->user()->load(['role.warehouse']);
+    return $request->user()->load(['role.warehouse.primaryCashAccount']);
 });
+
+Route::get('tracking-orders', [ServiceOrderController::class, 'trackingOrders']);
 
 Route::group(['middleware' => ['auth:sanctum']], function () {
     //user area
@@ -34,6 +36,7 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
     Route::get('get-all-products-by-warehouse/{warehouse}/{endDate}', [ProductController::class, 'getAllProductsByWarehouse']);
     Route::post('stock-adjustment', [ProductController::class, 'stockAdjustment']);
     Route::post('stock-reversal', [ProductController::class, 'stockReversal']);
+    Route::post('/import-products', [ProductController::class, 'import']);
 
     //end product area
 
@@ -78,6 +81,7 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
     Route::post('create-mutation', [JournalController::class, 'createMutation']);
     Route::get('get-journal-by-transaction-id/{transaction_id}', [JournalController::class, 'getJournalByTransactionId']);
     Route::get('get-journal-by-warehouse/{warehouse}/{startDate}/{endDate}', [JournalController::class, 'getJournalByWarehouse']);
+    Route::get('get-warehouse-balance/{endDate}', [JournalController::class, 'getWarehouseBalance']);
     Route::get('get-revenue-report/{startDate}/{endDate}', [JournalController::class, 'getRevenueReport']);
     Route::get('get-revenue-by-warehouse/{warehouse}/{startDate}/{endDate}', [JournalController::class, 'getRevenueByWarehouse']);
     //end journal
@@ -93,7 +97,7 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
 
     //finance
     Route::apiResource('finance', FinanceController::class);
-    Route::get('finance-by-type/{contact}/{financeType}', [FinanceController::class, 'getFinanceByType']);
+    Route::get('finance-by-type/{contact}/{financeType}/{startDate}/{endDate}', [FinanceController::class, 'getFinanceByType']);
     Route::get('get-finance-by-contact-id/{contactId}', [FinanceController::class, 'getFinanceByContactId']);
     Route::post('store-payment', [FinanceController::class, 'storePayment']);
     Route::get('get-finance-data/{invoice}', [FinanceController::class, 'getFinanceData']);

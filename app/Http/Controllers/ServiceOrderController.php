@@ -14,6 +14,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Http\Resources\DataResource;
 
+use function Pest\Laravel\get;
+
 class ServiceOrderController extends Controller
 {
     /**
@@ -21,8 +23,8 @@ class ServiceOrderController extends Controller
      */
     public function index(Request $request)
     {
-        $startDate = $request->start_date ? Carbon::parse($request->start_date)->startOfDay() : Carbon::now()->startOfDay();
-        $endDate = $request->end_date ? Carbon::parse($request->end_date)->endOfDay() : Carbon::now()->endOfDay();
+        $startDate = $request->start_date ? Carbon::parse($request->start_date)->startOfMonth() : Carbon::now()->startOfMonth();
+        $endDate = $request->end_date ? Carbon::parse($request->end_date)->endOfMonth() : Carbon::now()->endOfMonth();
 
         $orders = ServiceOrder::with(['contact', 'user', 'warehouse', 'technician'])
             ->whereBetween('date_issued', [$startDate, $endDate])
@@ -34,16 +36,31 @@ class ServiceOrderController extends Controller
                             ->orWhere('phone_number', 'like', '%' . $request->search . '%');
                     });
             })
-            ->when(auth()->user()->role->role === 'Administrator', function ($query) {
-                return $query;
-            }, function ($query) {
-                return $query->where('warehouse_id', auth()->user()->role->warehouse_id);
+            ->when($request->status !== "All Orders", function ($query) use ($request) {
+                return $query->where('status', $request->status);
             })
-            ->orderBy('date_issued', 'desc')
+            // ->when(auth()->user()->role->role !== 'Administrator', function ($query) {
+            //     return $query->where('warehouse_id', auth()->user()->role->warehouse_id);
+            // })
+            ->orderBy('updated_at', 'desc')
             ->paginate(5)
             ->onEachSide(0);
 
-        return new DataResource($orders, true, "Successfully fetched service orders");
+        $orderStatusCount = ServiceOrder::select('status', DB::raw('COUNT(*) as total'))
+            ->whereBetween('date_issued', [$startDate, $endDate])
+            ->groupBy('status')
+            // ->when(auth()->user()->role->role !== 'Administrator', function ($query) {
+            //     return $query->where('warehouse_id', auth()->user()->role->warehouse_id);
+            // })
+            ->pluck('total', 'status') // key = status, value = total
+            ->toArray();
+
+        $data = [
+            'orders' => $orders,
+            'orderStatusCount' => $orderStatusCount
+        ];
+
+        return new DataResource($data, true, "Successfully fetched service orders");
     }
 
     /**
@@ -152,7 +169,7 @@ class ServiceOrderController extends Controller
 
         $order = ServiceOrder::where('order_number', $request->order_number)->first();
 
-        if ($order->invoice && $order->status == 'In Progress') {
+        if ($order->invoice && $order->status == 'In Progress' && $request->status == 'Canceled') {
             return response()->json(['success' => false, 'message' => 'Pembatalan gagal, sudah ada transaksi dan pergantian sparepart'], 400);
         }
 
@@ -201,7 +218,7 @@ class ServiceOrderController extends Controller
                     'journal_type' => 'Transaction',
                     'finance_type' => $request->paymentMethod == 'credit' ? 'Receivable' : null,
                     'user_id' => auth()->user()->id,
-                    'warehouse_id' => auth()->user()->role->warehouse_id
+                    'warehouse_id' => $order->warehouse_id
                 ]);
 
                 if ($request->paymentMethod == "credit") {
@@ -210,7 +227,7 @@ class ServiceOrderController extends Controller
                         'due_date' => $request->date_issued ?? now()->addDays(30),
                         'invoice' => $order->invoice,
                         'description' => 'Pembayaran Service Order ' . $order->order_number,
-                        'bill_amount' => - ($totalPrice + $request->serviceFee - $request->discount),
+                        'bill_amount' => (-$totalPrice + $request->serviceFee - $request->discount),
                         'payment_amount' => 0,
                         'payment_nth' => 0,
                         'finance_type' => 'Receivable',
@@ -338,6 +355,11 @@ class ServiceOrderController extends Controller
 
             foreach ($request->parts as $item) {
                 $cost = Product::find($item['id'])->current_cost;
+                $itemExists = $transaction->stock_movements()->where('product_id', $item['id'])->exists();
+
+                if ($itemExists) {
+                    continue;
+                }
 
                 $transaction->stock_movements()->create([
                     'date_issued' => now(),
@@ -351,7 +373,6 @@ class ServiceOrderController extends Controller
             }
 
             $order->invoice = $newinvoice;
-            $order->status = "Finished";
             $order->save();
 
             DB::commit();
@@ -371,7 +392,8 @@ class ServiceOrderController extends Controller
         $orders = ServiceOrder::select('service_orders.technician_id')
             ->addSelect(DB::raw('COUNT(DISTINCT service_orders.id) as total_orders'))
             ->addSelect(DB::raw('SUM(CASE WHEN je.chart_of_account_id = 17 THEN (je.credit - je.debit) ELSE 0 END) as total_fee'))
-            ->whereBetween('service_orders.date_issued', [$startDate, $endDate])
+            ->whereBetween('service_orders.updated_at', [$startDate, $endDate])
+            ->where('service_orders.status', 'Completed')
             ->join('journals as j', 'j.invoice', '=', 'service_orders.invoice')
             ->join('journal_entries as je', 'je.journal_id', '=', 'j.id')
             ->groupBy('service_orders.technician_id')
@@ -384,5 +406,40 @@ class ServiceOrderController extends Controller
             'message' => 'Order retrieved successfully',
             'data'    => $orders
         ], 200);
+    }
+
+    public function trackingOrders(Request $request)
+    {
+        $request->validate(
+            [
+                'search' => 'required|string',
+            ],
+            [
+                'search.required' => 'Masukan nomor telepon atau nomor order terlebih dahulu',
+            ]
+        );
+
+        $order = ServiceOrder::with('contact')->where('order_number', $request->search)->orWhereHas('contact', function ($query) use ($request) {
+            $query->where('phone_number', $request->search);
+        })->latest('updated_at')->get();
+        if ($order->isEmpty()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Hasil pencarian ' . $request->search . ' tidak ditemukan',
+            ], 404);
+        }
+
+        if ($order) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Order retrieved successfully',
+                'data'    => $order
+            ], 200);
+        } else {
+            return response()->json([
+                'success' => false,
+                'message' => 'Order not found',
+            ], 404);
+        }
     }
 }
