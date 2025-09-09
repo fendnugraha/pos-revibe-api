@@ -68,11 +68,11 @@ class DatabaseSeeder extends Seeder
             'role' => 'Administrator'
         ]);
 
-        // UserRole::create([
-        //     'user_id' => 2,
-        //     'warehouse_id' => 1,
-        //     'role' => 'Administrator'
-        // ]);
+        UserRole::create([
+            'user_id' => 2,
+            'warehouse_id' => 1,
+            'role' => 'Administrator'
+        ]);
 
         // UserRole::create([
         //     'user_id' => 3,
