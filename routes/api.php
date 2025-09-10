@@ -51,6 +51,7 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
     Route::get('get-cash-bank-balance/{warehouse}/{endDate}', [ChartOfAccountController::class, 'getCashBankBalance']);
     Route::get('balance-sheet-report/{endDate}', [ChartOfAccountController::class, 'balanceSheetReport']);
     Route::get('cash-flow-report/{startDate}/{endDate}', [ChartOfAccountController::class, 'cashFlowReport']);
+    Route::put('update-warehouse-id/{id}', [ChartOfAccountController::class, 'updateWarehouseId']);
     //end account area
 
     //contacts
