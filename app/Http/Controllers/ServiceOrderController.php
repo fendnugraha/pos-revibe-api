@@ -442,4 +442,26 @@ class ServiceOrderController extends Controller
             ], 404);
         }
     }
+
+    public function removePartFromOrder(Request $request)
+    {
+        $order = ServiceOrder::findOrFail($request->order_id);
+
+        // asumsi relasi: ServiceOrder -> transaction -> stock_movements (hasMany)
+        $order->transaction->stock_movements()
+            ->where('product_id', $request->part_id)
+            ->delete();
+
+        // Cek lagi apakah stock_movements masih ada
+        if ($order->transaction->stock_movements()->count() === 0) {
+            $order->invoice = null;
+            $order->save();
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Part removed from order successfully',
+            'data' => $order->fresh('transaction.stock_movements') // refresh supaya data terbaru
+        ], 200);
+    }
 }
