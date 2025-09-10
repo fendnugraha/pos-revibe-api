@@ -23,7 +23,7 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained()->onDelete('restrict');
             $table->foreignId('warehouse_id')->constrained()->onDelete('restrict');
             $table->string('serial_number', 255)->nullable();
-            $table->enum('journal_type', ['Transaction', 'Finance', 'General'])->default('General');
+            $table->enum('journal_type', ['Transaction', 'Finance', 'General', 'Income', 'Expense', 'Mutation'])->default('General');
             $table->enum('status', ['Active', 'Deleted'])->default('Active')->index(); // 1: active, 0: cancelled
             $table->timestamps();
         });

@@ -54,7 +54,7 @@ class JournalController extends Controller
      */
     public function show(string $id)
     {
-        $journal = Journal::with(['debt', 'cred'])->find($id);
+        $journal = Journal::with(['entries'])->findOrFail($id);
         return new DataResource($journal, true, "Successfully fetched journal");
     }
 
@@ -75,43 +75,29 @@ class JournalController extends Controller
             'cred_code' => 'required|exists:chart_of_accounts,id',
             'debt_code' => 'required|exists:chart_of_accounts,id',
             'amount' => 'required|numeric|min:0',
-            'fee_amount' => 'required|numeric|min:0',
             'description' => 'max:255',
         ]);
 
-        $journal = Journal::findOrFail($id); // Better to fail gracefully
-        // $log = new LogActivity();
-        $isAmountChanged = $journal->amount != $request->amount;
-        $isFeeAmountChanged = $journal->fee_amount != $request->fee_amount;
-
         DB::beginTransaction();
         try {
-            $oldAmount = $journal->amount;
-            $oldFeeAmount = $journal->fee_amount;
+            $journal = Journal::findOrFail($id);
+            $journal->entries()->delete();
 
             $journal->update($request->all());
-
-            $descriptionParts = [];
-            if ($isAmountChanged) {
-                $oldAmountFormatted = number_format($oldAmount, 0, ',', '.');
-                $newAmountFormatted = number_format($request->amount, 0, ',', '.');
-                $descriptionParts[] = "Amount changed from Rp $oldAmountFormatted to Rp $newAmountFormatted.";
-            }
-            if ($isFeeAmountChanged) {
-                $oldFeeFormatted = number_format($oldFeeAmount, 0, ',', '.');
-                $newFeeFormatted = number_format($request->fee_amount, 0, ',', '.');
-                $descriptionParts[] = "Fee amount changed from Rp $oldFeeFormatted to Rp $newFeeFormatted.";
-            }
-
-
-            // if ($isAmountChanged || $isFeeAmountChanged) {
-            //     $log->create([
-            //         'user_id' => auth()->id,
-            //         'warehouse_id' => $journal->warehouse_id,
-            //         'activity' => 'Updated Journal',
-            //         'description' => 'Updated Journal with ID: ' . $journal->id . '. ' . implode(' ', $descriptionParts),
-            //     ]);
-            // }
+            $journal->entries()->createMany([
+                [
+                    'journal_id' => $journal->id,
+                    'chart_of_account_id' => $request->debt_code,
+                    'debit' => $request->amount,
+                    'credit' => 0
+                ],
+                [
+                    'journal_id' => $journal->id,
+                    'chart_of_account_id' => $request->cred_code,
+                    'debit' => 0,
+                    'credit' => $request->amount
+                ]
+            ]);
 
             DB::commit();
         } catch (\Exception $e) {
@@ -161,7 +147,6 @@ class JournalController extends Controller
             'cred_code' => 'required|exists:chart_of_accounts,id',
             'amount' => 'required|numeric|min:0',
             'trx_type' => 'required',
-            'fee_amount' => 'required|numeric|min:0',
             'custName' => 'required|regex:/^[a-zA-Z0-9\s]+$/|min:3|max:255',
         ], [
             'debt_code.required' => 'Akun debet harus diisi.',
@@ -225,6 +210,7 @@ class JournalController extends Controller
                 'invoice' => $newInvoice,  // Menggunakan metode statis untuk invoice
                 'date_issued' => $request->date_issued ?? now(),
                 'description' => $description,
+                'journal_type' => $request->journal_type ?? 'General',
                 'user_id' => auth()->user()->id,
                 'warehouse_id' => auth()->user()->role->warehouse_id
             ]);

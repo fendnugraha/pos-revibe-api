@@ -95,10 +95,8 @@ class FinanceController extends Controller
                 'description' => $request->description,
                 'bill_amount' => $request->amount,
                 'payment_amount' => 0,
-                'payment_status' => 0,
                 'payment_nth' => 0,
                 'finance_type' => $request->type,
-                'journal_id' => $journal->id,
                 'contact_id' => $request->contact_id,
                 'user_id' => auth()->user()->id,
                 'warehouse_id' => auth()->user()->role->warehouse_id
@@ -155,36 +153,27 @@ class FinanceController extends Controller
         $checkData = Finance::where('invoice', $invoice)->get();
         // dd($checkData->count());
 
-        if ($finance->payment_status == 1) {
+        if ($finance->status == "Paid") {
             return response()->json([
                 'status' => false,
                 'message' => 'Pembayaran sudah dilakukan'
-            ]);
+            ], 500);
         }
 
 
-        if ($finance->payment_status == 0 && $finance->payment_nth == 0 && $checkData->count() > 1) {
+        if ($finance->status == "Unpaid" && $finance->payment_nth == 0 && $checkData->count() > 1) {
             return response()->json([
                 'status' => false,
                 'message' => 'Sudah terjadi pembayaran'
-            ]);
+            ], 500);
         }
 
         // $log = new LogActivity();
 
         DB::beginTransaction();
         try {
-            Journal::where('invoice', $invoice)->where('payment_status', $finance->payment_status)->where('payment_nth', $finance->payment_nth)->delete();
+            Journal::where('invoice', $invoice)->where('payment_nth', $finance->payment_nth)->delete();
             $finance->delete();
-
-            $financeAmount = $finance->bill_amount > 0 ? $finance->bill_amount : $finance->payment_amount;
-            $billOrPayment = $finance->bill_amount > 0 ? 'bill' : 'payment';
-            // $log->create([
-            //     'user_id' => auth()->id,
-            //     'warehouse_id' => 1,
-            //     'activity' => $finance->finance_type . ' deleted',
-            //     'description' => $finance->finance_type . ' with invoice: ' . $finance->invoice . ' ' . $billOrPayment . ' amount: ' . $financeAmount . ' deleted by ' . auth()->user()->name,
-            // ]);
 
             DB::commit();
             return response()->json([
