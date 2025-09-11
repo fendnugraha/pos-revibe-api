@@ -270,9 +270,8 @@ class JournalController extends Controller
         $endDate = $endDate ? Carbon::parse($endDate)->endOfDay() : Carbon::now()->endOfDay();
 
         $journals = JournalEntry::with(['journal', 'chartOfAccount'])
-            ->whereHas('journal', function ($query) use ($startDate, $endDate, $warehouse) {
-                $query->whereBetween('date_issued', [$startDate, $endDate])
-                    ->where('warehouse_id', $warehouse);
+            ->whereHas('journal', function ($query) use ($startDate, $endDate) {
+                $query->whereBetween('date_issued', [$startDate, $endDate]);
             })
             ->whereIn('chart_of_account_id', $chartOfAccounts)
             ->orderBy('journal_id', 'desc')

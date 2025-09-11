@@ -37,12 +37,12 @@ class DatabaseSeeder extends Seeder
             'password' => 'user123',
         ]);
 
-        // User::factory()->create([
-        //     'name' => 'Narayan',
-        //     'email' => 'narayan@jour.com',
-        //     'email_verified_at' => now(),
-        //     'password' => 'user123',
-        // ]);
+        User::factory()->create([
+            'name' => 'Narayan',
+            'email' => 'narayan@jour.com',
+            'email_verified_at' => now(),
+            'password' => 'user123',
+        ]);
 
         Warehouse::create([
             'code' => 'HQT',
@@ -50,17 +50,17 @@ class DatabaseSeeder extends Seeder
             'address' => 'Bandung, Jawa Barat, ID, 40375',
         ]);
 
-        // Warehouse::create([
-        //     'code' => 'KLT',
-        //     'name' => 'Konter Kulalet',
-        //     'address' => 'Bandung, Jawa Barat, ID, 40375',
-        // ]);
+        Warehouse::create([
+            'code' => 'KLT',
+            'name' => 'Konter Kulalet',
+            'address' => 'Bandung, Jawa Barat, ID, 40375',
+        ]);
 
-        // Warehouse::create([
-        //     'code' => 'DOA',
-        //     'name' => 'DOA IBU Inc',
-        //     'address' => 'Bandung, Jawa Barat, ID, 40375',
-        // ]);
+        Warehouse::create([
+            'code' => 'DOA',
+            'name' => 'DOA IBU Inc',
+            'address' => 'Bandung, Jawa Barat, ID, 40375',
+        ]);
 
         UserRole::create([
             'user_id' => 1,
@@ -74,11 +74,11 @@ class DatabaseSeeder extends Seeder
             'role' => 'Administrator'
         ]);
 
-        // UserRole::create([
-        //     'user_id' => 3,
-        //     'warehouse_id' => 2,
-        //     'role' => 'Administrator'
-        // ]);
+        UserRole::create([
+            'user_id' => 3,
+            'warehouse_id' => 2,
+            'role' => 'Administrator'
+        ]);
 
         Contact::create([
             'name' => 'General',
@@ -88,34 +88,38 @@ class DatabaseSeeder extends Seeder
             'Description' => 'General Customer',
         ]);
 
-        // Contact::insert([
-        //     [
-        //         'name' => 'Putra Riwayat',
-        //         'type' => 'Supplier',
-        //         'phone_number' => '082231235506',
-        //         'address' => 'Bandung, Jawa Barat, ID, 40375',
-        //         'Description' => 'General Supplier',
-        //     ],
-        //     [
-        //         'name' => 'DOA IBU Inc',
-        //         'type' => 'Customer',
-        //         'phone_number' => '085186080992',
-        //         'address' => 'Bandung, Jawa Barat, ID, 40375',
-        //         'Description' => 'General Customer',
-        //     ]
-        // ]);
+        Contact::insert([
+            [
+                'name' => 'Putra Riwayat',
+                'type' => 'Supplier',
+                'phone_number' => '082231235506',
+                'address' => 'Bandung, Jawa Barat, ID, 40375',
+                'Description' => 'General Supplier',
+            ],
+            [
+                'name' => 'DOA IBU Inc',
+                'type' => 'Customer',
+                'phone_number' => '085186080992',
+                'address' => 'Bandung, Jawa Barat, ID, 40375',
+                'Description' => 'General Customer',
+            ]
+        ]);
 
         ProductCategory::insert([
             ['id' => 1, 'name' => 'General', 'prefix' => 'GNR'],
+            ['id' => 2, 'name' => 'Sparepart', 'prefix' => 'SPR'],
+            ['id' => 3, 'name' => 'Aksesoris',  'prefix' => 'ACC'],
+            ['id' => 4, 'name' => 'Service',    'prefix' => 'SRV'],
+            ['id' => 5, 'name' => 'HP Second',   'prefix' => 'HPS'],
         ]);
 
         $this->call([
             AccountSeeder::class,
             ChartOfAccountSeeder::class,
-            // ProductSeeder::class
+            ProductSeeder::class
         ]);
 
-        // Contact::factory(20)->create();
-        // ServiceOrder::factory(25)->create();
+        Contact::factory(20)->create();
+        ServiceOrder::factory(25)->create();
     }
 }
