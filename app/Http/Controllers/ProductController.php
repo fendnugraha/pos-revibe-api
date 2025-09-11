@@ -93,17 +93,17 @@ class ProductController extends Controller
         $request->validate(
             [
                 'name' => 'required|string|max:255|unique:products,name,' . $product->id,
-                'category' => 'required|exists:product_categories,name',  // Make sure category_id is present
-                'price' => 'required|numeric|min:' . $product->cost,
-                'cost' => 'required|numeric',
+                'category_id' => 'required|exists:product_categories,id',  // Make sure category_id is present
+                'price' => 'required|numeric|min:' . $product->current_cost,
+                'current_cost' => 'required|numeric',
             ]
         );
 
         $product->update([
             'name' => $request->name,
-            'category' => $request->category,
+            'category_id' => $request->category_id,
             'price' => $request->price,
-            'cost' => $request->cost
+            'current_cost' => $request->current_cost
         ]);
 
         return response()->json([
