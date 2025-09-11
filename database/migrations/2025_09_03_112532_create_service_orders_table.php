@@ -19,6 +19,7 @@ return new class extends Migration
             $table->string('phone_number', 15);
             $table->string('phone_type', 160);
             $table->string('description', 160);
+            $table->enum('payment_method', ['Cash/Bank Transfer', 'Credit', 'Unpaid'])->default('Unpaid');
             $table->enum('status', ['Pending', 'In Progress', 'Finished', 'Completed', 'Canceled', 'Rejected'])->default('Pending');
             $table->foreignId('technician_id')->nullable()->constrained('users'); // atau 'technicians'
             $table->foreignId('warehouse_id')->constrained('warehouses');

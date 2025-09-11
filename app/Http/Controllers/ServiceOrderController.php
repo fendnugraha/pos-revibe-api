@@ -206,12 +206,19 @@ class ServiceOrderController extends Controller
         $order = ServiceOrder::where('order_number', $request->order_number)->first();
         $totalPrice = $order?->transaction?->stock_movements()->selectRaw('SUM(quantity * price) as total')->value('total');
         $totalCost = $order?->transaction?->stock_movements()->selectRaw('SUM(quantity * cost) as total')->value('total');
+        $newInvoice = Journal::order_journal();
 
         if ($order) {
             DB::beginTransaction();
             try {
+                // Pastikan order punya invoice
+                if (!$order->invoice) {
+                    $order->invoice = $newInvoice;
+                    $order->save();
+                }
+
                 $journal = Journal::create([
-                    'invoice' => $order->invoice,  // Menggunakan metode statis untuk invoice
+                    'invoice' => $order->invoice ?? $newInvoice,  // Menggunakan metode statis untuk invoice
                     'date_issued' => $request->date_issued ?? now(),
                     'transaction_type' => 'Sales',
                     'description' => 'Pembayaran Service Order ' . $order->order_number,
@@ -225,7 +232,7 @@ class ServiceOrderController extends Controller
                     Finance::create([
                         'date_issued' => $request->date_issued ?? now(),
                         'due_date' => $request->date_issued ?? now()->addDays(30),
-                        'invoice' => $order->invoice,
+                        'invoice' => $order->invoice ?? $newInvoice,
                         'description' => 'Pembayaran Service Order ' . $order->order_number,
                         'bill_amount' => (-$totalPrice + $request->serviceFee - $request->discount),
                         'payment_amount' => 0,
@@ -298,13 +305,18 @@ class ServiceOrderController extends Controller
                     ]);
                 }
 
-                $order->transaction()->update([
-                    'transaction_type' => 'Sales'
-                ]);
+                if ($order->transaction()->exists()) {
+                    $order->transaction()->update([
+                        'transaction_type' => 'Sales',
+                        'payment_method'   => $request->paymentMethod == "cash"
+                            ? "Cash/Bank Transfer"
+                            : "Credit",
+                    ]);
+                }
 
-                $order->status = "Completed";
-                $order->transaction->payment_method = $request->paymentMethod == "cash" ? "Cash/Bank Transfer" : "Credit";
-                $order->push();
+                $order->update(['status' => "Completed", 'payment_method'   => $request->paymentMethod == "cash"
+                    ? "Cash/Bank Transfer"
+                    : "Credit",]);
 
                 DB::commit();
                 return response()->json(['success' => true, 'message' => 'Payment made successfully', 'data' => $order], 200);

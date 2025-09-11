@@ -2,14 +2,16 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Resources\DataResource;
 use App\Models\Journal;
 use App\Models\Warehouse;
+use App\Models\Transaction;
+use App\Models\JournalEntry;
+use App\Models\ServiceOrder;
 use Illuminate\Http\Request;
 use App\Models\ChartOfAccount;
-use App\Models\JournalEntry;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use App\Http\Resources\DataResource;
 
 class WarehouseController extends Controller
 {
@@ -130,14 +132,30 @@ class WarehouseController extends Controller
      */
     public function destroy(Warehouse $warehouse)
     {
-        if ($warehouse->is_locked) {
+        if ($warehouse->is_locked || $warehouse->id == 1) {
             return response()->json([
                 'success' => false,
                 'message' => 'Warehouse is locked and cannot be deleted.'
             ], 403);
         }
 
-        $journalExists = JournalEntry::where('warehouse_id', $warehouse->id)->exists();
+        $seriveOrderExists = ServiceOrder::where('warehouse_id', $warehouse->id)->exists();
+        if ($seriveOrderExists) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Warehouse cannot be deleted because it has related service orders.'
+            ], 403);
+        }
+
+        $transactionExists = Transaction::where('warehouse_id', $warehouse->id)->exists();
+        if ($transactionExists) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Warehouse cannot be deleted because it has related transactions.'
+            ], 403);
+        }
+
+        $journalExists = Journal::where('warehouse_id', $warehouse->id)->exists();
         if ($journalExists || $warehouse->id == 1) {
             return response()->json([
                 'success' => false,
