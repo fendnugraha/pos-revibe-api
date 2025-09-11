@@ -43,7 +43,7 @@ class UserController extends Controller
             'password' => 'required|min:6',
             'confirmPassword' => 'required|same:password',
             'warehouse' => 'required|exists:warehouses,id',
-            'role' => 'required|in:Administrator,Staff'
+            'role' => 'required|in:Administrator,Staff,Cashier,Technician'
         ]);
 
         DB::beginTransaction();
@@ -116,7 +116,7 @@ class UserController extends Controller
             'name' => 'required|min:3|max:90',
             'email' => 'required|email|unique:users,email,' . $id,
             'warehouse' => 'required|exists:warehouses,id',
-            'role' => 'required|in:Administrator,Staff'
+            'role' => 'required|in:Administrator,Staff,Cashier,Technician'
         ]);
 
         DB::beginTransaction();
