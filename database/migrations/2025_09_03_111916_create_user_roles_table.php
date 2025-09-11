@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_id')->nullable()->constrained()->onDelete('set null');
             $table->foreignId('warehouse_id')->nullable()->constrained()->onDelete('set null');
-            $table->enum('role', ['Administrator', 'Staff', 'Cashier'])->default('Staff');
+            $table->enum('role', ['Administrator', 'Staff', 'Cashier', 'Technician'])->default('Staff');
             $table->timestamps();
         });
     }
