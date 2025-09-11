@@ -159,8 +159,7 @@ class ChartOfAccountController extends Controller
         }
 
         try {
-            $journalExists = Journal::where('debt_code', $chartOfAccount->acc_code)
-                ->orWhere('cred_code', $chartOfAccount->acc_code)
+            $journalExists = JournalEntry::where('chart_of_account_id', $chartOfAccount->id)
                 ->exists();
 
             if ($journalExists) {
