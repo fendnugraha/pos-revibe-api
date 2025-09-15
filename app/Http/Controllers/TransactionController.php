@@ -346,7 +346,7 @@ class TransactionController extends Controller
                     'due_date' => $request->date_issued ?? now()->addDays(30),
                     'invoice' => $newinvoice,
                     'description' => 'Penjualan Barang',
-                    'bill_amount' => -$totalPrice,
+                    'bill_amount' => $totalPrice,
                     'payment_amount' => 0,
                     'payment_nth' => 0,
                     'finance_type' => 'Receivable',

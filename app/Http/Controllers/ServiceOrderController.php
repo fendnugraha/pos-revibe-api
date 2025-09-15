@@ -80,7 +80,7 @@ class ServiceOrderController extends Controller
             'date_issued' => 'required|date',
             'name' => 'required|string|max:255',
             'description' => 'required|string|max:255',
-            'phone_number' => 'required|string|max:15',
+            'phone_number' => 'required|string|max:15|min:9',
             'phone_type' => 'required|string|max:30',
             'address' => 'required|string|max:160'
         ]);

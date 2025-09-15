@@ -463,4 +463,40 @@ class ProductController extends Controller
             ], 400);
         }
     }
+
+    public function productHistory(Request $request, $id)
+    {
+        $product = Product::find($id);
+        $startDate = $request->start_date
+            ? Carbon::parse($request->start_date)->startOfDay()
+            : Carbon::now()->startOfDay();
+        $endDate = $request->end_date
+            ? Carbon::parse($request->end_date)->endOfDay()
+            : Carbon::now()->endOfDay();
+
+        if (!$product) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Product not found'
+            ], 404);
+        }
+
+        $stock_movements = $product->stock_movements()
+            ->with('warehouse', 'transaction')
+            ->whereBetween('date_issued', [$startDate, $endDate])
+            ->orderByDesc('date_issued')
+            ->paginate(10, ['*'], 'productHistory')
+            ->onEachSide(0);
+
+        $data = [
+            'product' => $product,
+            'stock_movements' => $stock_movements
+        ];
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Product history',
+            'data' => $data
+        ], 200);
+    }
 }

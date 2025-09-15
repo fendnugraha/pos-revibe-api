@@ -38,6 +38,7 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
     Route::post('stock-adjustment', [ProductController::class, 'stockAdjustment']);
     Route::post('stock-reversal', [ProductController::class, 'stockReversal']);
     Route::post('/import-products', [ProductController::class, 'import']);
+    Route::get('/product-history/{id}', [ProductController::class, 'productHistory']);
 
     //end product area
 
