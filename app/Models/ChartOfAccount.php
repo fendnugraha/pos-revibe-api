@@ -31,6 +31,7 @@ class ChartOfAccount extends Model
     const SHIPPING_EXPENSE = 40;
     const SERVICE_FEE = 17;
     const BANK_FEE = 47;
+    const PRIVE = 15;
 
     public function entries()
     {

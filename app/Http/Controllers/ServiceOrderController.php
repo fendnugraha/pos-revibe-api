@@ -221,7 +221,7 @@ class ServiceOrderController extends Controller
                     'invoice' => $order->invoice ?? $newInvoice,  // Menggunakan metode statis untuk invoice
                     'date_issued' => $request->date_issued ?? now(),
                     'transaction_type' => 'Sales',
-                    'description' => 'Pembayaran Service Order ' . $order->order_number,
+                    'description' => 'Pembayaran Service Order ' . $order->order_number . ' Note: ' . $request->note,
                     'journal_type' => 'Transaction',
                     'finance_type' => $request->paymentMethod == 'credit' ? 'Receivable' : null,
                     'user_id' => auth()->user()->id,
@@ -244,32 +244,34 @@ class ServiceOrderController extends Controller
                     ]);
                 }
 
-                $journal->entries()->createMany([
-                    [
-                        'journal_id' => $journal->id,
-                        'chart_of_account_id' => $request->paymentAccountID,
-                        'debit' => -$totalPrice,
-                        'credit' => 0
-                    ],
-                    [
-                        'journal_id' => $journal->id,
-                        'chart_of_account_id' => 16,
-                        'debit' => 0,
-                        'credit' => -$totalPrice
-                    ],
-                    [
-                        'journal_id' => $journal->id,
-                        'chart_of_account_id' => 10,
-                        'debit' => 0,
-                        'credit' => -$totalCost
-                    ],
-                    [
-                        'journal_id' => $journal->id,
-                        'chart_of_account_id' => 21,
-                        'debit' => -$totalCost,
-                        'credit' => 0
-                    ]
-                ]);
+                if ($order->transaction()->exists()) {
+                    $journal->entries()->createMany([
+                        [
+                            'journal_id' => $journal->id,
+                            'chart_of_account_id' => $request->paymentAccountID,
+                            'debit' => -$totalPrice,
+                            'credit' => 0
+                        ],
+                        [
+                            'journal_id' => $journal->id,
+                            'chart_of_account_id' => 16,
+                            'debit' => 0,
+                            'credit' => -$totalPrice
+                        ],
+                        [
+                            'journal_id' => $journal->id,
+                            'chart_of_account_id' => 10,
+                            'debit' => 0,
+                            'credit' => -$totalCost
+                        ],
+                        [
+                            'journal_id' => $journal->id,
+                            'chart_of_account_id' => 21,
+                            'debit' => -$totalCost,
+                            'credit' => 0
+                        ]
+                    ]);
+                }
 
                 if ($request->serviceFee) {
                     $journal->entries()->createMany([
