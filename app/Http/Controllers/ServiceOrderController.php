@@ -84,12 +84,12 @@ class ServiceOrderController extends Controller
             'phone_type' => 'required|string|max:30',
             'address' => 'required|string|max:160'
         ]);
-
+        $newInvoice = ServiceOrder::generateOrderNumber(auth()->user()->role->warehouse_id, auth()->user()->id);
         DB::beginTransaction();
         try {
             $serviceOrder = ServiceOrder::create([
                 'date_issued' => $request->date_issued,
-                'order_number' => ServiceOrder::generateOrderNumber(auth()->user()->role->warehouse_id, auth()->user()->id),
+                'order_number' => $newInvoice,
                 'name' => $request->name,
                 'description' => $request->description,
                 'phone_number' => $request->phone_number,
