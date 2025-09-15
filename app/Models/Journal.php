@@ -154,21 +154,18 @@ class Journal extends Model
 
     public static function order_journal()
     {
-        $userId = auth()->user()->id;
+        $userId = auth()->id();
         $today = now()->toDateString();
 
-        $lastInvoice = Transaction::where(function ($query) {
-            $query->where('transaction_type', 'Sales')
-                ->orWhere('transaction_type', 'Order');
-        })
-            ->where('user_id', $userId)
+        $lastInvoice = ServiceOrder::where('invoice', 'like', 'RO.BK.' . now()->format('dmY') . '.' . $userId . '.%')
             ->whereDate('created_at', $today)
-            ->max(DB::raw('CAST(SUBSTRING_INDEX(invoice, ".", -1) AS UNSIGNED)')); // Ambil angka terakhir
+            ->max(DB::raw('CAST(SUBSTRING_INDEX(invoice, ".", -1) AS UNSIGNED)'));
 
         $nextNumber = $lastInvoice ? $lastInvoice + 1 : 1;
 
         return 'RO.BK.' . now()->format('dmY') . '.' . $userId . '.' . str_pad($nextNumber, 7, '0', STR_PAD_LEFT);
     }
+
 
 
     public static function purchase_journal()

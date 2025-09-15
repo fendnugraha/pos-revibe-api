@@ -206,13 +206,13 @@ class ServiceOrderController extends Controller
         $order = ServiceOrder::where('order_number', $request->order_number)->first();
         $totalPrice = $order?->transaction?->stock_movements()->selectRaw('SUM(quantity * price) as total')->value('total');
         $totalCost = $order?->transaction?->stock_movements()->selectRaw('SUM(quantity * cost) as total')->value('total');
-        $newInvoice = Journal::order_journal();
+        $newInvoice = $order?->invoice !== null ? $order->invoice : Journal::order_journal();
 
         if ($order) {
             DB::beginTransaction();
             try {
                 // Pastikan order punya invoice
-                if (!$order->invoice) {
+                if ($order->invoice === null) {
                     $order->invoice = $newInvoice;
                     $order->save();
                 }
