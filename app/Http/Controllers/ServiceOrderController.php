@@ -153,9 +153,9 @@ class ServiceOrderController extends Controller
 
     public function GetOrderByOrderNumber($order_number)
     {
-        $order = ServiceOrder::with(['contact', 'user', 'warehouse', 'technician', 'transaction.stock_movements.product', 'journal.serviceFee', 'journal.sales_discount'])
-            ->where('order_number', $order_number)
-            ->first();
+        $order = ServiceOrder::with(['transaction.stock_movements.product', 'journal' => function ($query) {
+            $query->with(['serviceFee', 'sales_discount', 'entries.chartOfAccount:id,acc_name,account_id']);
+        }])->where('order_number', $order_number)->first();
 
         return new DataResource($order, true, "Successfully fetched service order");
     }
@@ -221,7 +221,7 @@ class ServiceOrderController extends Controller
                     'invoice' => $order->invoice ?? $newInvoice,  // Menggunakan metode statis untuk invoice
                     'date_issued' => $request->date_issued ?? now(),
                     'transaction_type' => 'Sales',
-                    'description' => 'Pembayaran Service Order ' . $order->order_number . ' Note: ' . $request->note,
+                    'description' => 'Pembayaran Service Order ' . $order->order_number . '. Note: ' . $request->note,
                     'journal_type' => 'Transaction',
                     'finance_type' => $request->paymentMethod == 'credit' ? 'Receivable' : null,
                     'user_id' => auth()->user()->id,
@@ -329,6 +329,39 @@ class ServiceOrderController extends Controller
             }
         } else {
             return response()->json(['success' => false, 'message' => 'Service order not found'], 404);
+        }
+    }
+
+    public function updatePaymentOrder($order_number, Request $request)
+    {
+        $order = ServiceOrder::where('order_number', $order_number)->first();
+
+        $request->validate([
+            'date_issued' => 'required|date',
+            'paymentAccountID' => 'exists:chart_of_accounts,id',
+            'note' => 'nullable|string'
+        ]);
+
+        DB::beginTransaction();
+        try {
+            $order->journal()->update([
+                'date_issued' => $request->date_issued,
+                'description' => 'Pembayaran Service Order ' . $order->order_number . '. Note: ' . $request->note
+            ]);
+
+            if ($request->paymentAccountID && $order->payment_method !== "Credit") {
+                $order->journal->entries()->where('chart_of_account_id', $request->oldPaymentAccountID)->update([
+                    'chart_of_account_id' => $request->paymentAccountID
+                ]);
+            }
+
+            DB::commit();
+
+            return response()->json(['success' => true, 'message' => 'Payment date updated successfully', 'data' => $order], 200);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error($e->getMessage());
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 400);
         }
     }
 

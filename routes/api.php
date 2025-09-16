@@ -77,6 +77,7 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
     Route::get('get-revenue-by-user/{startDate}/{endDate}', [ServiceOrderController::class, 'getRevenueByUser']);
     Route::post('add-parts-to-order', [ServiceOrderController::class, 'addPartsToOrder']);
     Route::delete('remove-part-from-order/{id}', [ServiceOrderController::class, 'removePartFromOrder']);
+    Route::put('update-payment-order/{order_number}', [ServiceOrderController::class, 'updatePaymentOrder']);
     //end order
 
     //journal

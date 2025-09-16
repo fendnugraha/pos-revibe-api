@@ -11,6 +11,8 @@ class ServiceOrder extends Model
 
     protected $guarded = ['id', 'created_at', 'updated_at'];
 
+    protected $with = ['contact', 'user', 'warehouse', 'technician'];
+
     public function technician()
     {
         return $this->belongsTo(User::class, 'technician_id');
