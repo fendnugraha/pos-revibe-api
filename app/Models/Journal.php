@@ -154,17 +154,28 @@ class Journal extends Model
 
     public static function order_journal()
     {
-        $userId = auth()->id();
-        $today = now()->toDateString();
+        $prefix = 'RO.BK.' . now()->format('dmY') . '.' . auth()->id() . '.';
 
-        $lastInvoice = ServiceOrder::where('invoice', 'like', 'RO.BK.' . now()->format('dmY') . '.' . $userId . '.%')
-            ->whereDate('created_at', $today)
-            ->max(DB::raw('CAST(SUBSTRING_INDEX(invoice, ".", -1) AS UNSIGNED)'));
+        do {
+            $lastNumber = Journal::where('invoice', 'like', $prefix . '%')
+                ->orderBy('id', 'desc')
+                ->value('invoice');
 
-        $nextNumber = $lastInvoice ? $lastInvoice + 1 : 1;
+            if ($lastNumber && preg_match('/(\d+)$/', $lastNumber, $matches)) {
+                $nextNumber = (int) $matches[1] + 1;
+            } else {
+                $nextNumber = 1;
+            }
 
-        return 'RO.BK.' . now()->format('dmY') . '.' . $userId . '.' . str_pad($nextNumber, 7, '0', STR_PAD_LEFT);
+            $newInvoice = $prefix . str_pad($nextNumber, 7, '0', STR_PAD_LEFT);
+        } while (
+            Journal::where('invoice', $newInvoice)->exists() ||
+            ServiceOrder::where('invoice', $newInvoice)->exists()
+        );
+
+        return $newInvoice;
     }
+
 
 
 

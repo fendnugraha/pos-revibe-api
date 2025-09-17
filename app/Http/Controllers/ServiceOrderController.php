@@ -511,4 +511,38 @@ class ServiceOrderController extends Controller
             'data' => $order->fresh('transaction.stock_movements') // refresh supaya data terbaru
         ], 200);
     }
+
+    public function voidOrder(Request $request)
+    {
+        $order = ServiceOrder::where('order_number', $request->order_number)->firstOrFail();
+        $transactionExists = Transaction::where('invoice', $order->invoice)->exists();
+        $journalExists = Journal::where('invoice', $order->invoice)->exists();
+
+        DB::beginTransaction();
+        try {
+            if ($order->journal) {
+                // hapus journal dulu
+                $order->journal()->delete();
+            }
+
+            if ($transactionExists) {
+                Transaction::where('invoice', $order->invoice)->delete();
+            }
+
+            // update status order
+            $order->update(['status' => 'Canceled', 'payment_method' => 'Unpaid']);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Order voided successfully',
+                'data' => $order
+            ], 200);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error($e->getMessage());
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 400);
+        }
+    }
 }

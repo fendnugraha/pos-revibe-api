@@ -78,6 +78,7 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
     Route::post('add-parts-to-order', [ServiceOrderController::class, 'addPartsToOrder']);
     Route::delete('remove-part-from-order/{id}', [ServiceOrderController::class, 'removePartFromOrder']);
     Route::put('update-payment-order/{order_number}', [ServiceOrderController::class, 'updatePaymentOrder']);
+    Route::delete('void-order', [ServiceOrderController::class, 'voidOrder']);
     //end order
 
     //journal

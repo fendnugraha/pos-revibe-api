@@ -53,7 +53,7 @@ class ServiceOrder extends Model
         $warehouse_code = Warehouse::where('id', $warehouse_id)->value('code');
 
         $lastOrder = ServiceOrder::where('warehouse_id', $warehouse_id)
-            // ->whereDate('date_issued', now()->startOfDay())
+            ->whereDate('date_issued', now()->startOfDay())
             ->where('user_id', $user_id)
             ->orderBy('id', 'desc')
             ->first();

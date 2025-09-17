@@ -10,7 +10,7 @@ class Transaction extends Model
 
     public function journal()
     {
-        return $this->belongsTo(JournalEntry::class, 'invoice', 'invoice');
+        return $this->hasOne(Journal::class, 'invoice', 'invoice');
     }
 
     public function product()
