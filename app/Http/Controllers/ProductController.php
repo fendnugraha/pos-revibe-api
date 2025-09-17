@@ -29,13 +29,7 @@ class ProductController extends Controller
             ->orderBy('name')
             ->paginate(10)->onEachSide(0);
 
-        $getAllProducts = Product::with('category')->orderBy('name')->get();
-
-        $data = [
-            'products' => $products,
-            'getAllProducts' => $getAllProducts
-        ];
-        return new DataResource($data, true, "Successfully fetched products");
+        return new DataResource($products, true, "Successfully fetched products");
     }
 
     /**
@@ -141,7 +135,7 @@ class ProductController extends Controller
 
     public function getAllProducts()
     {
-        $products = Product::orderBy('name')->get();
+        $products = Product::with('category')->orderBy('name')->get();
         return new DataResource($products, true, "Successfully fetched products");
     }
 
