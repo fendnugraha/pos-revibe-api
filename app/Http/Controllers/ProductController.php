@@ -438,7 +438,7 @@ class ProductController extends Controller
                 }
 
                 Product::updateOrCreate(
-                    ['name' => $item['name']], // key unik
+                    ['name' => $item['name'], 'code' => $item['code']], // key unik
                     [
                         'code'         => $item['code'],
                         'category_id'  => $category->id,
