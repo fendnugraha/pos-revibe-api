@@ -86,10 +86,12 @@ class ProductCategoryController extends Controller
         DB::beginTransaction();
         try {
             foreach ($products as $item) {
-                ProductCategory::firstOrCreate([
-                    'prefix' => $item['prefix'],
-                    'name'   => $item['name'],
-                ]);
+                ProductCategory::updateOrCreate(
+                    ['prefix' => $item['prefix']], // key unik
+                    [
+                        'name' => $item['name'],
+                    ]
+                );
             }
 
             DB::commit();
