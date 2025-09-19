@@ -265,7 +265,13 @@ class JournalController extends Controller
 
     public function getJournalByWarehouse($warehouse, $startDate, $endDate)
     {
-        $chartOfAccounts = ChartOfAccount::where('warehouse_id', $warehouse)->pluck('id')->toArray();
+        $chartOfAccounts = ChartOfAccount::where(function ($query) use ($warehouse) {
+            return auth()->user()->role->role === "Administrator"
+                ? $query->whereIn('account_id', [1, 2])
+                : $query->where('warehouse_id', $warehouse);
+        })->pluck('id')->toArray();
+
+
         $startDate = $startDate ? Carbon::parse($startDate)->startOfDay() : Carbon::now()->startOfDay();
         $endDate = $endDate ? Carbon::parse($endDate)->endOfDay() : Carbon::now()->endOfDay();
 
