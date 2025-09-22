@@ -142,6 +142,7 @@ class ProductController extends Controller
     public function getAllProductsByWarehouse($warehouse, $endDate, Request $request)
     {
         $status = $request->status;
+
         $products = Product::withSum([
             'stock_movements' => function ($query) use ($warehouse, $endDate, $status) {
                 $query->where('warehouse_id', $warehouse)
@@ -151,12 +152,35 @@ class ProductController extends Controller
                     });
             }
         ], 'quantity')
+            ->when($request->search, function ($query, $search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                        ->orWhere('code', 'like', "%{$search}%");
+                });
+            })
             ->where('is_service', false)
-            ->orderBy('name')
-            ->get();
+            ->orderBy('name');
 
-        return new DataResource($products, true, "Successfully fetched products");
+        $summarizedProducts = Product::selectRaw('SUM(stock_movements.cost * stock_movements.quantity) as total_cost')
+            ->join('stock_movements', 'products.id', '=', 'stock_movements.product_id')
+            ->where('products.is_service', false)
+            ->where('stock_movements.warehouse_id', $warehouse)
+            ->where('stock_movements.date_issued', '<=', Carbon::parse($endDate)->endOfDay())
+            ->when($status, function ($query) use ($status) {
+                $query->where('stock_movements.status', $status);
+            })
+            ->value('total_cost');
+
+        $data = [
+            'products' => $request->boolean('paginated')
+                ? $products->paginate($request->get('per_page', 10))->onEachSide(0)
+                : $products->get(),
+            'summarizedProducts' => $summarizedProducts
+        ];
+
+        return new DataResource($data, true, "Successfully fetched products");
     }
+
 
     public function stockAdjustment(Request $request)
     {

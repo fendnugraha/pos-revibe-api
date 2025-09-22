@@ -28,6 +28,9 @@ class ServiceOrderController extends Controller
 
         $orders = ServiceOrder::with(['contact', 'user', 'warehouse', 'technician'])
             ->whereBetween('date_issued', [$startDate, $endDate])
+            ->when($request->warehouse_id, function ($query) use ($request) {
+                return $query->where('warehouse_id', $request->warehouse_id);
+            })
             ->where(function ($query) use ($request) {
                 $query->where('order_number', 'like', '%' . $request->search . '%')
                     ->orWhere('phone_type', 'like', '%' . $request->search . '%')
@@ -42,9 +45,7 @@ class ServiceOrderController extends Controller
             // ->when(auth()->user()->role->role !== 'Administrator', function ($query) {
             //     return $query->where('warehouse_id', auth()->user()->role->warehouse_id);
             // })
-            ->orderBy('updated_at', 'desc')
-            ->paginate(5)
-            ->onEachSide(0);
+            ->orderBy('updated_at', 'desc');
 
         $orderStatusCount = ServiceOrder::select('status', DB::raw('COUNT(*) as total'))
             ->whereBetween('date_issued', [$startDate, $endDate])
@@ -56,7 +57,7 @@ class ServiceOrderController extends Controller
             ->toArray();
 
         $data = [
-            'orders' => $orders,
+            'orders' => $request->boolean('paginated') ? $orders->paginate(10)->onEachSide(0) : $orders->get(),
             'orderStatusCount' => $orderStatusCount
         ];
 
