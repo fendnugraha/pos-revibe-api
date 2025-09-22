@@ -270,7 +270,7 @@ class FinanceController extends Controller
                 };
             })->first();
 
-        $financeAccountId = $checkFinanceAccountIdOnJournal?->entries()->where('debit', '>', 0)->first()?->chart_of_account_id;
+        $financeAccountId = $checkFinanceAccountIdOnJournal?->entries()->where(fn($query) => $finance->finance_type == "Payable" ? $query->where('credit', '>', 0) : $query->where('debit', '>', 0))->first()?->chart_of_account_id;
         Log::info($financeAccountId);
 
         $payment_nth = Finance::selectRaw('MAX(payment_nth) as payment_nth')->where('invoice', $request->invoice)->first()->payment_nth + 1;
