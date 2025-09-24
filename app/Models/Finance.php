@@ -26,7 +26,7 @@ class Finance extends Model
 
     public function journal()
     {
-        return $this->belongsTo(Journal::class, 'invoice', 'invoice');
+        return $this->hasMany(Journal::class, 'invoice', 'invoice');
     }
 
     public static function generateFinanceInvoice($contact_id, $type)

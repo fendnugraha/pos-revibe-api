@@ -57,7 +57,7 @@ class ServiceOrderController extends Controller
             ->toArray();
 
         $data = [
-            'orders' => $request->boolean('paginated') ? $orders->paginate(10)->onEachSide(0) : $orders->get(),
+            'orders' => $request->boolean('paginated') ? $orders->paginate($request->per_page ?? 10)->onEachSide(0) : $orders->get(),
             'orderStatusCount' => $orderStatusCount
         ];
 

@@ -2,9 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Resources\DataResource;
 use App\Models\Contact;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use App\Http\Resources\DataResource;
 
 class ContactController extends Controller
 {
@@ -46,19 +47,34 @@ class ContactController extends Controller
             'description' => 'nullable|string|max:255'
         ]);
 
-        $contact = Contact::create([
-            'name' => $request['name'],
-            'type' => $request['type'],
-            'phone_number' => $request['phone_number'],
-            'address' => $request['address'],
-            'description' => $request['description'] ?? 'General Contact'
-        ]);
+        DB::beginTransaction();
+        try {
+            $contact = Contact::updateOrCreate([
+                'phone_number' => $request->phone_number
+            ], [
+                [
+                    'name' => $request['name'],
+                    'type' => $request['type'],
+                    'address' => $request['address'],
+                    'description' => $request['description'] ?? 'General Contact'
+                ]
+            ]);
 
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Contact created successfully',
-            'data' => $contact
-        ]);
+            DB::commit();
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Contact created successfully',
+                'data' => $contact
+            ], 201);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to create contact',
+                'error' => $e->getMessage()
+            ], 400);
+        }
     }
 
     /**

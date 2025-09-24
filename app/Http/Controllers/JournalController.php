@@ -479,7 +479,7 @@ class JournalController extends Controller
         $startDate = $startDate ? Carbon::parse($startDate)->startOfDay() : Carbon::now()->startOfDay();
         $endDate = $endDate ? Carbon::parse($endDate)->endOfDay() : Carbon::now()->endOfDay();
 
-        $serviceOrder = ServiceOrder::where('warehouse_id', $warehouse)->whereBetween('date_issued', [$startDate, $endDate])->count();
+        $serviceOrder = ServiceOrder::where('warehouse_id', $warehouse)->where('status', 'Completed')->whereBetween('updated_at', [$startDate, $endDate])->count();
 
         $chartOfAccounts = ChartOfAccount::with('account')->get();
 
