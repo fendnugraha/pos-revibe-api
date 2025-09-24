@@ -14,8 +14,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Http\Resources\DataResource;
 
-use function Pest\Laravel\get;
-
 class ServiceOrderController extends Controller
 {
     /**
@@ -517,7 +515,17 @@ class ServiceOrderController extends Controller
     {
         $order = ServiceOrder::where('order_number', $request->order_number)->firstOrFail();
         $transactionExists = Transaction::where('invoice', $order->invoice)->exists();
-        $journalExists = Journal::where('invoice', $order->invoice)->exists();
+
+        //count different days update at and current date
+        $days = Carbon::now()->diffInDays($order->updated_at);
+        Log::info($days);
+
+        if ($days < 7 && $order->status == 'Completed') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Order lebih dari 7 hari dan sudah terjadi pembayaran, tidak bisa void',
+            ], 400);
+        }
 
         DB::beginTransaction();
         try {
