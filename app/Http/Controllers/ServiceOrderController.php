@@ -520,7 +520,7 @@ class ServiceOrderController extends Controller
         $days = Carbon::now()->diffInDays($order->updated_at);
         Log::info($days);
 
-        if ($days < 7 && $order->status == 'Completed') {
+        if ($days < -7 && $order->status == 'Completed') {
             return response()->json([
                 'success' => false,
                 'message' => 'Order lebih dari 7 hari dan sudah terjadi pembayaran, tidak bisa void',
