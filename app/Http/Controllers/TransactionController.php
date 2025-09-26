@@ -152,7 +152,7 @@ class TransactionController extends Controller
                 'contact_id' => $request->contact_id ?? 1,
                 'payment_method' => $request->paymentMethod == "credit" ? "Credit" : "Cash/Bank Transfer",
                 'user_id' => auth()->user()->id,
-                'warehouse_id' => auth()->user()->role->warehouse_id,
+                'warehouse_id' => $request->warehouse_id ?? 1,
             ]);
 
             // Tahap 1: Hitung total pembelian
@@ -181,11 +181,11 @@ class TransactionController extends Controller
                     'quantity' => $item['quantity'],
                     'cost' => $itemCostAfterDiscount,
                     'price' => 0,
-                    'warehouse_id' => auth()->user()->role->warehouse_id,
+                    'warehouse_id' => $request->warehouse_id ?? 1,
                     'transaction_type' => "Purchase"
                 ]);
 
-                // Product::updateStock($item['id'], $item['quantity'], auth()->user()->role->warehouse_id);
+                // Product::updateStock($item['id'], $item['quantity'], $request->warehouse_id ?? 1);
                 Product::updateCost($item['id']);
             }
 
@@ -194,7 +194,7 @@ class TransactionController extends Controller
                 'date_issued' => $request->date_issued ?? now(),
                 'description' => 'Pembelian Barang',
                 'user_id' => auth()->user()->id,
-                'warehouse_id' => auth()->user()->role->warehouse_id
+                'warehouse_id' => $request->warehouse_id ?? 1
             ]);
 
             $journal->entries()->createMany([
@@ -243,7 +243,7 @@ class TransactionController extends Controller
                     'journal_id' => $journal->id,
                     'contact_id' => $request->contact_id,
                     'user_id' => auth()->user()->id,
-                    'warehouse_id' => auth()->user()->role->warehouse_id
+                    'warehouse_id' => $request->warehouse_id ?? 1
                 ]);
             }
 
@@ -418,6 +418,7 @@ class TransactionController extends Controller
             ->when($warehouse !== "all", function ($query) use ($warehouse) {
                 $query->where('warehouse_id', $warehouse);
             })
+            ->where('transaction_type', '!=', 'Mutation')
             ->whereBetween('date_issued', [$startDate, $endDate])
             ->when($request->invoice, function ($query) use ($request) {
                 $query->where('invoice', 'like', '%' . $request->invoice . '%');

@@ -16,8 +16,8 @@ return new class extends Migration
             $table->dateTime('date_issued')->index();
             $table->string('invoice', 60)->index();
 
-            $table->enum('transaction_type', ['Sales', 'Purchase', 'Order', 'Adjustment', 'Return']);
-            $table->foreignId('contact_id')->constrained('contacts')->onDelete('restrict');
+            $table->enum('transaction_type', ['Sales', 'Purchase', 'Order', 'Adjustment', 'Return', 'Mutation']);
+            $table->foreignId('contact_id')->constrained('contacts')->onDelete('restrict')->nullable();
             $table->foreignId('warehouse_id')->constrained('warehouses')->onDelete('restrict');
             $table->foreignId('user_id')->constrained('users')->onDelete('restrict');
 

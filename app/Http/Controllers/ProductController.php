@@ -462,7 +462,7 @@ class ProductController extends Controller
                 }
 
                 Product::updateOrCreate(
-                    ['name' => $item['name'], 'code' => $item['code']], // key unik
+                    ['name' => $item['name']], // key unik
                     [
                         'code'         => $item['code'],
                         'category_id'  => $category->id,
@@ -523,5 +523,137 @@ class ProductController extends Controller
             'message' => 'Product history',
             'data' => $data
         ], 200);
+    }
+
+    public function importTransferItem(Request $request)
+    {
+        $request->validate([
+            'from' => 'required|exists:warehouses,id',
+            'to' => 'required|exists:warehouses,id',
+            'date_issued' => 'required|date',
+            'cart' => 'required|array',
+            'cart.*.code' => 'required|exists:products,code',
+            'cart.*.quantity' => 'required|numeric|min:1',
+        ]);
+
+        DB::beginTransaction();
+        try {
+            $newInvoice = Journal::mutation_journal();
+            $transaction = Transaction::create([
+                'date_issued' => $request->date_issued,
+                'invoice' => $newInvoice,
+                'transaction_type' => "Mutation",
+                'contact_id' => 1,
+                'warehouse_id' => $request->from,
+                'user_id' => auth()->id(),
+                'status' => "Confirmed",
+            ]);
+
+            foreach ($request->cart as $item) {
+                $product = Product::where('code', $item['code'])->first();
+                $quantity = $item['quantity'];
+
+                StockMovement::insert([
+                    [
+                        'date_issued' => $request->date_issued,
+                        'product_id' => $product->id,
+                        'transaction_id' => $transaction->id,
+                        'quantity' => -$quantity,
+                        'cost' => $product->current_cost,
+                        'price' => $product->price,
+                        'warehouse_id' => $request->from,
+                        'transaction_type' => "Mutation",
+                    ],
+                    [
+                        'date_issued' => $request->date_issued,
+                        'product_id' => $product->id,
+                        'transaction_id' => $transaction->id,
+                        'quantity' => $quantity,
+                        'cost' => $product->current_cost,
+                        'price' => $product->price,
+                        'warehouse_id' => $request->to,
+                        'transaction_type' => "Mutation",
+                    ]
+                ]);
+            }
+
+            DB::commit();
+            return response()->json([
+                'success' => true,
+                'message' => 'Item transfered successfully',
+            ], 200);
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => $th->getMessage(),
+            ], 400);
+        }
+    }
+
+    public function transferItem(Request $request)
+    {
+        $request->validate([
+            'from' => 'required|exists:warehouses,id',
+            'to' => 'required|exists:warehouses,id',
+            'date_issued' => 'required|date',
+            'cart' => 'required|array',
+            'cart.*.id' => 'required|exists:products,id',
+            'cart.*.quantity' => 'required|numeric|min:1',
+        ]);
+
+        DB::beginTransaction();
+        try {
+            $newInvoice = Journal::mutation_journal();
+            $transaction = Transaction::create([
+                'date_issued' => $request->date_issued,
+                'invoice' => $newInvoice,
+                'transaction_type' => "Mutation",
+                'contact_id' => 1,
+                'warehouse_id' => $request->from,
+                'user_id' => auth()->id(),
+                'status' => "Confirmed",
+            ]);
+
+            foreach ($request->cart as $item) {
+                $product = Product::find($item['id']);
+                $quantity = $item['quantity'];
+
+                StockMovement::insert([
+                    [
+                        'date_issued' => $request->date_issued,
+                        'product_id' => $product->id,
+                        'transaction_id' => $transaction->id,
+                        'quantity' => -$quantity,
+                        'cost' => $product->current_cost,
+                        'price' => $product->price,
+                        'warehouse_id' => $request->from,
+                        'transaction_type' => "Mutation",
+                    ],
+                    [
+                        'date_issued' => $request->date_issued,
+                        'product_id' => $product->id,
+                        'transaction_id' => $transaction->id,
+                        'quantity' => $quantity,
+                        'cost' => $product->current_cost,
+                        'price' => $product->price,
+                        'warehouse_id' => $request->to,
+                        'transaction_type' => "Mutation",
+                    ]
+                ]);
+            }
+
+            DB::commit();
+            return response()->json([
+                'success' => true,
+                'message' => 'Item transfered successfully',
+            ], 200);
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => $th->getMessage(),
+            ], 400);
+        }
     }
 }

@@ -39,6 +39,8 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
     Route::post('stock-reversal', [ProductController::class, 'stockReversal']);
     Route::post('/import-products', [ProductController::class, 'import']);
     Route::get('/product-history/{id}', [ProductController::class, 'productHistory']);
+    Route::post('transfer-item', [ProductController::class, 'transferItem']);
+    Route::post('import-transfer-item', [ProductController::class, 'importTransferItem']);
 
     //end product area
 

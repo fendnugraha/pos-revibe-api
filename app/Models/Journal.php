@@ -191,6 +191,12 @@ class Journal extends Model
         return self::generateJournalInvoice('AJ.BK', 'transactions', [['transaction_type', '=', 'Adjustment']]);
     }
 
+    public static function mutation_journal()
+    {
+        // Untuk purchase journal, kita menambahkan kondisi agar hanya mengembalikan yang quantity > 0
+        return self::generateJournalInvoice('TR.BK', 'transactions', [['transaction_type', '=', 'Mutation']]);
+    }
+
     public static function endBalanceBetweenDate($account_code, $start_date, $end_date)
     {
         $initBalance = ChartOfAccount::with('account')->where('id', $account_code)->first();
