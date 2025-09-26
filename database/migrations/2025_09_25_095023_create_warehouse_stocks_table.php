@@ -13,7 +13,14 @@ return new class extends Migration
     {
         Schema::create('warehouse_stocks', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('warehouse_id')->constrained('warehouses')->onDelete('cascade');
+            $table->foreignId('product_id')->constrained('products')->onDelete('cascade');
+            $table->unsignedBigInteger('quantity')->default(0); // stok tidak boleh minus
+            $table->date('balance_date')->index();
             $table->timestamps();
+
+            $table->unique(['warehouse_id', 'product_id', 'balance_date']);
+            $table->index(['warehouse_id', 'product_id']);
         });
     }
 
