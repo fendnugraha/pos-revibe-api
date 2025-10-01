@@ -47,6 +47,9 @@ class ServiceOrderController extends Controller
 
         $orderStatusCount = ServiceOrder::select('status', DB::raw('COUNT(*) as total'))
             ->whereBetween('date_issued', [$startDate, $endDate])
+            ->when($request->warehouse_id, function ($query) use ($request) {
+                return $query->where('warehouse_id', $request->warehouse_id);
+            })
             ->groupBy('status')
             // ->when(auth()->user()->role->role !== 'Administrator', function ($query) {
             //     return $query->where('warehouse_id', auth()->user()->role->warehouse_id);
