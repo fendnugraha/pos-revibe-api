@@ -374,58 +374,99 @@ class ServiceOrderController extends Controller
             'parts' => 'required|array'
         ]);
 
-        $order = ServiceOrder::where('order_number', $request->order_number)->first();
+        // Ambil order di luar transaction
+        $order = ServiceOrder::with('contact')
+            ->where('order_number', $request->order_number)
+            ->first();
+
         if (!$order) {
-            return response()->json(['success' => false, 'message' => 'Service order not found'], 404);
+            return response()->json([
+                'success' => false,
+                'message' => 'Service order not found'
+            ], 404);
         }
 
-        $transactionExists = Transaction::where('invoice', $order->invoice)->exists();
+        $transactionExists = $order->invoice
+            ? Transaction::where('invoice', $order->invoice)->exists()
+            : false;
 
-        $newinvoice = $transactionExists ? $order->invoice : Journal::order_journal();
-        $warehouseId = auth()->user()->role->warehouse_id;
-        $userId = auth()->user()->id;
+        $newInvoice = $transactionExists
+            ? $order->invoice
+            : Journal::order_journal();
 
-        DB::beginTransaction();
+        $warehouseId = auth()->user()->role->warehouse_id ?? null;
+        $userId = auth()->id();
+
         try {
-            if ($transactionExists) {
-                $transaction = Transaction::where('invoice', $order->invoice)->first();
-            } else {
-                $transaction = Transaction::create([
-                    'date_issued' => now(),
-                    'invoice' => $newinvoice,
-                    'transaction_type' => "Order",
-                    'status' => "Confirmed",
-                    'contact_id' => $order->contact->id ?? 1,
-                    'warehouse_id' => $warehouseId,
-                    'user_id' => $userId
-                ]);
-            }
+            // retry sampai 5x kalau deadlock
+            DB::transaction(function () use ($transactionExists, $newInvoice, $order, $request, $warehouseId, $userId) {
 
-            foreach ($request->parts as $item) {
-                $cost = Product::find($item['id'])->current_cost;
+                if ($transactionExists) {
+                    $transaction = Transaction::where('invoice', $order->invoice)
+                        ->lockForUpdate() // lock baris biar aman
+                        ->first();
+                } else {
+                    $transaction = Transaction::create([
+                        'date_issued' => now(),
+                        'invoice' => $newInvoice,
+                        'transaction_type' => "Order",
+                        'status' => "Confirmed",
+                        'contact_id' => $order->contact->id ?? 1,
+                        'warehouse_id' => $warehouseId,
+                        'user_id' => $userId
+                    ]);
+                }
 
-                $transaction->stock_movements()->create([
-                    'date_issued' => now(),
-                    'product_id' => $item['id'],
-                    'quantity' => -$item['quantity'],
-                    'cost' => $cost,
-                    'price' => $item['price'],
-                    'warehouse_id' => $warehouseId,
-                    'transaction_type' => "Order"
-                ]);
-            }
+                foreach ($request->parts as $item) {
+                    $product = Product::find($item['id']);
 
-            $order->invoice = $newinvoice;
-            $order->save();
+                    if (!$product) {
+                        throw new \Exception("Product with ID {$item['id']} not found");
+                    }
 
-            DB::commit();
-            return response()->json(['success' => true, 'message' => 'Parts added to order successfully', 'data' => $order], 200);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error($e->getMessage());
-            return response()->json(['success' => false, 'message' => $e->getMessage()], 400);
+                    $itemExists = $transaction->stock_movements()
+                        ->where('product_id', $item['id'])
+                        ->exists();
+
+                    if ($itemExists) {
+                        // kalau sudah ada, update qty
+                        $transaction->stock_movements()
+                            ->where('product_id', $item['id'])
+                            ->increment('quantity', -$item['quantity']);
+                    } else {
+                        // kalau belum ada, insert baru
+                        $transaction->stock_movements()->create([
+                            'date_issued' => now(),
+                            'product_id' => $item['id'],
+                            'quantity' => -$item['quantity'], // keluar stok
+                            'cost' => $product->current_cost,
+                            'price' => $item['price'],
+                            'warehouse_id' => $warehouseId,
+                            'transaction_type' => "Order"
+                        ]);
+                    }
+                }
+
+                // Update order dengan invoice
+                $order->update(['invoice' => $newInvoice]);
+            }, 5); // retry 5x kalau deadlock
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Parts added to order successfully',
+                'data' => $order->fresh(['contact', 'warehouse', 'technician'])
+            ], 200);
+        } catch (\Throwable $e) {
+            Log::error("addPartsToOrder error: " . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to add parts: ' . $e->getMessage()
+            ], 400);
         }
     }
+
 
     public function getRevenueByUser($startDate, $endDate)
     {
