@@ -375,7 +375,6 @@ class ServiceOrderController extends Controller
         ]);
 
         $order = ServiceOrder::where('order_number', $request->order_number)->first();
-        Log::info($order);
         if (!$order) {
             return response()->json(['success' => false, 'message' => 'Service order not found'], 404);
         }
