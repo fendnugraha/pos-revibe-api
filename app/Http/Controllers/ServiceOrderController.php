@@ -403,11 +403,6 @@ class ServiceOrderController extends Controller
 
             foreach ($request->parts as $item) {
                 $cost = Product::find($item['id'])->current_cost;
-                $itemExists = $transaction->stock_movements()->where('product_id', $item['id'])->exists();
-
-                if ($itemExists) {
-                    continue;
-                }
 
                 $transaction->stock_movements()->create([
                     'date_issued' => now(),
