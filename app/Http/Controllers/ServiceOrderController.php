@@ -374,7 +374,7 @@ class ServiceOrderController extends Controller
             'parts' => 'required|array'
         ]);
 
-        // Ambil order di luar transaction
+        // --- Ambil order & products di luar transaction ---
         $order = ServiceOrder::with('contact')
             ->where('order_number', $request->order_number)
             ->first();
@@ -385,6 +385,9 @@ class ServiceOrderController extends Controller
                 'message' => 'Service order not found'
             ], 404);
         }
+
+        $productIds = collect($request->parts)->pluck('id')->toArray();
+        $products = Product::whereIn('id', $productIds)->get()->keyBy('id');
 
         $transactionExists = $order->invoice
             ? Transaction::where('invoice', $order->invoice)->exists()
@@ -398,12 +401,19 @@ class ServiceOrderController extends Controller
         $userId = auth()->id();
 
         try {
-            // retry sampai 5x kalau deadlock
-            DB::transaction(function () use ($transactionExists, $newInvoice, $order, $request, $warehouseId, $userId) {
+            DB::transaction(function () use (
+                $transactionExists,
+                $newInvoice,
+                $order,
+                $request,
+                $warehouseId,
+                $userId,
+                $products
+            ) {
 
                 if ($transactionExists) {
                     $transaction = Transaction::where('invoice', $order->invoice)
-                        ->lockForUpdate() // lock baris biar aman
+                        ->lockForUpdate()
                         ->first();
                 } else {
                     $transaction = Transaction::create([
@@ -417,28 +427,28 @@ class ServiceOrderController extends Controller
                     ]);
                 }
 
-                foreach ($request->parts as $item) {
-                    $product = Product::find($item['id']);
+                // --- Ambil stock movements sekali ---
+                $existingMovements = $transaction->stock_movements()
+                    ->whereIn('product_id', $products->keys())
+                    ->get()
+                    ->keyBy('product_id');
 
+                foreach ($request->parts as $item) {
+                    $product = $products->get($item['id']);
                     if (!$product) {
                         throw new \Exception("Product with ID {$item['id']} not found");
                     }
 
-                    $itemExists = $transaction->stock_movements()
-                        ->where('product_id', $item['id'])
-                        ->exists();
-
-                    if ($itemExists) {
-                        // kalau sudah ada, update qty
-                        $transaction->stock_movements()
-                            ->where('product_id', $item['id'])
-                            ->increment('quantity', -$item['quantity']);
+                    if ($existingMovements->has($item['id'])) {
+                        // update qty
+                        $movement = $existingMovements->get($item['id']);
+                        $movement->increment('quantity', -$item['quantity']);
                     } else {
-                        // kalau belum ada, insert baru
+                        // insert baru
                         $transaction->stock_movements()->create([
                             'date_issued' => now(),
                             'product_id' => $item['id'],
-                            'quantity' => -$item['quantity'], // keluar stok
+                            'quantity' => -$item['quantity'],
                             'cost' => $product->current_cost,
                             'price' => $item['price'],
                             'warehouse_id' => $warehouseId,
@@ -447,9 +457,8 @@ class ServiceOrderController extends Controller
                     }
                 }
 
-                // Update order dengan invoice
                 $order->update(['invoice' => $newInvoice]);
-            }, 5); // retry 5x kalau deadlock
+            }, 3); // retry 3x kalau deadlock
 
             return response()->json([
                 'success' => true,
@@ -457,15 +466,14 @@ class ServiceOrderController extends Controller
                 'data' => $order->fresh(['contact', 'warehouse', 'technician'])
             ], 200);
         } catch (\Throwable $e) {
-            Log::error("addPartsToOrder error: " . $e->getMessage(), [
-                'trace' => $e->getTraceAsString()
-            ]);
+            Log::error("addPartsToOrder error: " . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to add parts: ' . $e->getMessage()
             ], 400);
         }
     }
+
 
 
     public function getRevenueByUser($startDate, $endDate)
