@@ -374,7 +374,6 @@ class ServiceOrderController extends Controller
             'parts' => 'required|array'
         ]);
         Log::info($request->all());
-        return response()->json($request->all());
         // --- Ambil order & products di luar transaction ---
         $order = ServiceOrder::with('contact')
             ->where('order_number', $request->order_number)
@@ -411,7 +410,7 @@ class ServiceOrderController extends Controller
                 $userId,
                 $products
             ) {
-
+                Log::info("Starting transaction");
                 if ($transactionExists) {
                     $transaction = Transaction::where('invoice', $order->invoice)
                         ->lockForUpdate()
