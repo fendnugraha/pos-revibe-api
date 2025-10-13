@@ -403,64 +403,64 @@ class ServiceOrderController extends Controller
         try {
             Log::info("Start transaction");
 
-            // DB::transaction(function () use (
-            //     $transactionExists,
-            //     $newInvoice,
-            //     $order,
-            //     $request,
-            //     $warehouseId,
-            //     $userId,
-            //     $products
-            // ) {
-            //     Log::info("Starting transaction for order " . $order->order_number);
-            //     if ($transactionExists) {
-            //         $transaction = Transaction::where('invoice', $order->invoice)
-            //             ->lockForUpdate()
-            //             ->first();
-            //     } else {
-            //         $transaction = Transaction::create([
-            //             'date_issued' => now(),
-            //             'invoice' => $newInvoice,
-            //             'transaction_type' => "Order",
-            //             'status' => "Confirmed",
-            //             'contact_id' => $order->contact->id ?? 1,
-            //             'warehouse_id' => $warehouseId,
-            //             'user_id' => $userId
-            //         ]);
-            //     }
+            DB::transaction(function () use (
+                $transactionExists,
+                $newInvoice,
+                $order,
+                $request,
+                $warehouseId,
+                $userId,
+                $products
+            ) {
+                Log::info("Starting transaction for order " . $order->order_number);
+                if ($transactionExists) {
+                    $transaction = Transaction::where('invoice', $order->invoice)
+                        ->lockForUpdate()
+                        ->first();
+                } else {
+                    $transaction = Transaction::create([
+                        'date_issued' => now(),
+                        'invoice' => $newInvoice,
+                        'transaction_type' => "Order",
+                        'status' => "Confirmed",
+                        'contact_id' => $order->contact->id ?? 1,
+                        'warehouse_id' => $warehouseId,
+                        'user_id' => $userId
+                    ]);
+                }
 
-            //     // --- Ambil stock movements sekali ---
-            //     $existingMovements = $transaction->stock_movements()
-            //         ->whereIn('product_id', $products->keys())
-            //         ->get()
-            //         ->keyBy('product_id');
+                // --- Ambil stock movements sekali ---
+                $existingMovements = $transaction->stock_movements()
+                    ->whereIn('product_id', $products->keys())
+                    ->get()
+                    ->keyBy('product_id');
 
-            //     foreach ($request->parts as $item) {
-            //         $product = $products->get($item['id']);
-            //         if (!$product) {
-            //             throw new \Exception("Product with ID {$item['id']} not found");
-            //         }
+                foreach ($request->parts as $item) {
+                    $product = $products->get($item['id']);
+                    if (!$product) {
+                        throw new \Exception("Product with ID {$item['id']} not found");
+                    }
 
-            //         if ($existingMovements->has($item['id'])) {
-            //             // update qty
-            //             $movement = $existingMovements->get($item['id']);
-            //             $movement->increment('quantity', -$item['quantity']);
-            //         } else {
-            //             // insert baru
-            //             $transaction->stock_movements()->create([
-            //                 'date_issued' => now(),
-            //                 'product_id' => $item['id'],
-            //                 'quantity' => -$item['quantity'],
-            //                 'cost' => $product->current_cost,
-            //                 'price' => $item['price'],
-            //                 'warehouse_id' => $warehouseId,
-            //                 'transaction_type' => "Order"
-            //             ]);
-            //         }
-            //     }
+                    if ($existingMovements->has($item['id'])) {
+                        // update qty
+                        $movement = $existingMovements->get($item['id']);
+                        $movement->increment('quantity', -$item['quantity']);
+                    } else {
+                        // insert baru
+                        $transaction->stock_movements()->create([
+                            'date_issued' => now(),
+                            'product_id' => $item['id'],
+                            'quantity' => -$item['quantity'],
+                            'cost' => $product->current_cost,
+                            'price' => $item['price'],
+                            'warehouse_id' => $warehouseId,
+                            'transaction_type' => "Order"
+                        ]);
+                    }
+                }
 
-            //     $order->update(['invoice' => $newInvoice]);
-            // }, 3); // retry 3x kalau deadlock
+                $order->update(['invoice' => $newInvoice]);
+            }, 3); // retry 3x kalau deadlock
 
             return response()->json([
                 'success' => true,
