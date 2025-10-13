@@ -373,7 +373,8 @@ class ServiceOrderController extends Controller
             'order_number' => 'required|string',
             'parts' => 'required|array'
         ]);
-
+        Log::info($request->all());
+        return response()->json($request->all());
         // --- Ambil order & products di luar transaction ---
         $order = ServiceOrder::with('contact')
             ->where('order_number', $request->order_number)
