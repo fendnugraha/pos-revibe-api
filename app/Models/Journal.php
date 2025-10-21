@@ -156,28 +156,17 @@ class Journal extends Model
     {
         $prefix = 'RO.BK.' . now()->format('dmY') . '.' . auth()->id() . '.';
 
-        // Ambil invoice terakhir dari kedua tabel (tanpa looping)
-        $lastJournal = Journal::where('invoice', 'like', $prefix . '%')
-            ->where('created_at', '>=', now()->startOfDay())
-            ->orderByDesc('id')
-            ->value('invoice');
+        // Cari invoice dengan angka terbesar di akhir
+        $lastNumber = ServiceOrder::where('invoice', 'like', $prefix . '%')
+            ->selectRaw("CAST(SUBSTRING_INDEX(invoice, '.', -1) AS UNSIGNED) AS number")
+            ->orderByDesc('number')
+            ->value('number');
 
-        $lastOrder = ServiceOrder::where('invoice', 'like', $prefix . '%')
-            ->where('created_at', '>=', now()->startOfDay())
-            ->orderByDesc('id')
-            ->value('invoice');
+        $nextNumber = ($lastNumber ?? 0) + 1;
 
-        // Ambil angka terakhir dari kedua hasil (kalau ada)
-        $lastNumber = collect([$lastJournal, $lastOrder])
-            ->filter() // buang null
-            ->map(fn($inv) => preg_match('/(\d+)$/', $inv, $m) ? (int) $m[1] : 0)
-            ->max() ?? 0;
-
-        Log::info($lastNumber);
-
-        // Format invoice baru
-        return $prefix . str_pad($lastNumber + 1, 7, '0', STR_PAD_LEFT);
+        return $prefix . str_pad($nextNumber, 7, '0', STR_PAD_LEFT);
     }
+
 
 
 
