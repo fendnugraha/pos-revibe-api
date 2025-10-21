@@ -156,25 +156,29 @@ class Journal extends Model
     {
         $prefix = 'RO.BK.' . now()->format('dmY') . '.' . auth()->id() . '.';
 
-        do {
-            $lastNumber = Journal::where('invoice', 'like', $prefix . '%')
-                ->orderBy('id', 'desc')
-                ->value('invoice');
+        // Ambil invoice terakhir dari kedua tabel (tanpa looping)
+        $lastJournal = Journal::where('invoice', 'like', $prefix . '%')
+            ->where('created_at', '>=', now()->startOfDay())
+            ->orderByDesc('id')
+            ->value('invoice');
 
-            if ($lastNumber && preg_match('/(\d+)$/', $lastNumber, $matches)) {
-                $nextNumber = (int) $matches[1] + 1;
-            } else {
-                $nextNumber = 1;
-            }
+        $lastOrder = ServiceOrder::where('invoice', 'like', $prefix . '%')
+            ->where('created_at', '>=', now()->startOfDay())
+            ->orderByDesc('id')
+            ->value('invoice');
 
-            $newInvoice = $prefix . str_pad($nextNumber, 7, '0', STR_PAD_LEFT);
-        } while (
-            Journal::where('invoice', $newInvoice)->exists() ||
-            ServiceOrder::where('invoice', $newInvoice)->exists()
-        );
+        // Ambil angka terakhir dari kedua hasil (kalau ada)
+        $lastNumber = collect([$lastJournal, $lastOrder])
+            ->filter() // buang null
+            ->map(fn($inv) => preg_match('/(\d+)$/', $inv, $m) ? (int) $m[1] : 0)
+            ->max() ?? 0;
 
-        return $newInvoice;
+        Log::info($lastNumber);
+
+        // Format invoice baru
+        return $prefix . str_pad($lastNumber + 1, 7, '0', STR_PAD_LEFT);
     }
+
 
 
 

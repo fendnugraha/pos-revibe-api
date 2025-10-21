@@ -373,7 +373,6 @@ class ServiceOrderController extends Controller
             'order_number' => 'required|string',
             'parts' => 'required|array'
         ]);
-        Log::info($request->all());
         // --- Ambil order & products di luar transaction ---
         $order = ServiceOrder::with('contact')
             ->where('order_number', $request->order_number)
@@ -459,7 +458,9 @@ class ServiceOrderController extends Controller
                     }
                 }
 
-                $order->update(['invoice' => $newInvoice]);
+                if (! $order->invoice) {
+                    $order->update(['invoice' => $newInvoice]);
+                }
             }, 3); // retry 3x kalau deadlock
 
             return response()->json([
@@ -542,21 +543,33 @@ class ServiceOrderController extends Controller
         $order = ServiceOrder::findOrFail($request->order_id);
 
         // asumsi relasi: ServiceOrder -> transaction -> stock_movements (hasMany)
-        $order->transaction->stock_movements()
-            ->where('product_id', $request->part_id)
-            ->delete();
+        DB::beginTransaction();
+        try {
+            $order->transaction->stock_movements()
+                ->where('product_id', $request->part_id)
+                ->delete();
 
-        // Cek lagi apakah stock_movements masih ada
-        if ($order->transaction->stock_movements()->count() === 0) {
-            $order->invoice = null;
-            $order->save();
+            // Cek lagi apakah stock_movements masih ada
+            if ($order->transaction->stock_movements()->count() === 0) {
+                $order->invoice = null;
+                $order->save();
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Part removed from order successfully',
+                'data' => $order->fresh('transaction.stock_movements') // refresh supaya data terbaru
+            ], 200);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error("removePartFromOrder error: " . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to remove part: ' . $e->getMessage()
+            ], 400);
         }
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Part removed from order successfully',
-            'data' => $order->fresh('transaction.stock_movements') // refresh supaya data terbaru
-        ], 200);
     }
 
     public function voidOrder(Request $request)
