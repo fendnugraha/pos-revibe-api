@@ -6,6 +6,7 @@ use App\Models\Contact;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Http\Resources\DataResource;
+use Illuminate\Support\Facades\Log;
 
 class ContactController extends Controller
 {
@@ -40,7 +41,7 @@ class ContactController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'name' => 'required|string|max:60',
+            'name' => 'required|max:60',
             'type' => 'required|string|max:15',
             'phone_number' => 'nullable|string|max:15',
             'address' => 'nullable|string|max:160',
@@ -52,12 +53,10 @@ class ContactController extends Controller
             $contact = Contact::updateOrCreate([
                 'phone_number' => $request->phone_number
             ], [
-                [
-                    'name' => $request['name'],
-                    'type' => $request['type'],
-                    'address' => $request['address'],
-                    'description' => $request['description'] ?? 'General Contact'
-                ]
+                'name' => $request->name,
+                'type' => $request->type,
+                'address' => $request->address,
+                'description' => $request->description ?? 'General Contact'
             ]);
 
             DB::commit();
@@ -69,6 +68,7 @@ class ContactController extends Controller
             ], 201);
         } catch (\Exception $e) {
             DB::rollBack();
+            Log::error('Failed to create contact: ' . $e->getMessage());
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to create contact',
@@ -129,9 +129,14 @@ class ContactController extends Controller
         ], 200);
     }
 
-    public function getAllContacts()
+    public function getAllContacts(Request $request)
     {
-        $contacts = Contact::orderBy('name', 'asc')->get();
+        $contacts = Contact::when($request->input('type'), function ($query, $type) {
+            $query->where('type', $type);
+        })
+            ->orderBy('name')
+            ->get();
+
         return new DataResource($contacts, true, "Successfully fetched contacts");
     }
 }
